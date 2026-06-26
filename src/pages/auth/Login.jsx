@@ -19,6 +19,71 @@ export default function Login() {
   const [loading, setLoading] = useState(false);
   const [mockOtp, setMockOtp] = useState('');
 
+  const generateClientSession = (loginEmail) => {
+    const isRajesh = loginEmail.toLowerCase() === 'rajesh.sharma@email.com';
+    if (isRajesh) {
+      return {
+        name: 'Rajesh Sharma',
+        email: loginEmail,
+        clientId: 'KFPL-1042',
+        onboardingComplete: true
+      };
+    }
+    
+    // Check if dynamic client session is already stored under this email to preserve it
+    const sessionKey = `kfpl_client_session_${loginEmail.toLowerCase()}`;
+    const existingSession = localStorage.getItem(sessionKey);
+    if (existingSession) {
+      try {
+        return JSON.parse(existingSession);
+      } catch (e) {
+        console.error(e);
+      }
+    }
+    
+    // Otherwise, generate a fresh client
+    const emailPrefix = loginEmail.split('@')[0];
+    const capitalizedName = emailPrefix
+      .split(/[\._-]/)
+      .map(part => part.charAt(0).toUpperCase() + part.slice(1))
+      .join(' ');
+      
+    const randomId = Math.floor(1000 + Math.random() * 9000);
+    const newClient = {
+      name: capitalizedName,
+      email: loginEmail,
+      clientId: `KFPL-${randomId}`,
+      onboardingComplete: false,
+      status: 'Active',
+      category: 'Silver',
+      memberSince: new Date().toISOString().split('T')[0],
+      agentName: 'Vikram Patel',
+      agentId: 'AGT-001',
+      phone: '+91 99999 88888',
+      dob: '1990-01-01',
+      address: '',
+      emergencyContact: '',
+      nominee: {
+        name: '',
+        relation: '',
+        contact: '',
+        email: ''
+      },
+      riskProfile: '',
+      riskProfileLocked: false,
+      agentCommission: {
+        oneTimePercent: 2,
+        monthlyPercent: 0.75,
+        specialPercent: 0,
+        totalPaid: 0,
+        history: []
+      }
+    };
+    
+    localStorage.setItem(sessionKey, JSON.stringify(newClient));
+    return newClient;
+  };
+
   const handleCredentialsSubmit = async (e) => {
     e.preventDefault();
     setError('');
@@ -44,7 +109,7 @@ export default function Login() {
         } else {
           const clientObject = data.client || data.data || data.user || {};
           localStorage.setItem('kfpl_client_auth', JSON.stringify({ token: data.token, client: { ...clientObject, email, name: clientObject.name || 'Investor' } }));
-          navigate('/dashboard');
+          window.location.href = '/dashboard';
         }
       } else {
         setError(data.message || data.error || 'Invalid credentials.');
@@ -58,9 +123,9 @@ export default function Login() {
         setError('');
         alert(`[Mock 2FA Code] An OTP verification code was sent to your email: ${generatedCode}`);
       } else {
-        const clientMock = { name: 'Rajesh Sharma', email: email, clientId: 'KFPL-1042' };
+        const clientMock = generateClientSession(email);
         localStorage.setItem('kfpl_client_auth', JSON.stringify({ token: 'mock-token', client: clientMock }));
-        navigate('/dashboard');
+        window.location.href = '/dashboard';
       }
     } finally {
       setLoading(false);
@@ -75,10 +140,10 @@ export default function Login() {
 
     // If OTP matches our mock code, log in immediately
     if (mockOtp && otp === mockOtp) {
-      const clientMock = { name: 'Rajesh Sharma', email: email, clientId: 'KFPL-1042' };
+      const clientMock = generateClientSession(email);
       localStorage.setItem('kfpl_client_auth', JSON.stringify({ token: 'mock-token', client: clientMock }));
       setLoading(false);
-      navigate('/dashboard');
+      window.location.href = '/dashboard';
       return;
     }
 
@@ -92,16 +157,16 @@ export default function Login() {
       if (response.ok) {
         const clientObject = data.client || data.data || data.user || {};
         localStorage.setItem('kfpl_client_auth', JSON.stringify({ token: data.token, client: { ...clientObject, email, name: clientObject.name || 'Investor' } }));
-        navigate('/dashboard');
+        window.location.href = '/dashboard';
       } else {
         setOtpError(data.message || 'Invalid OTP.');
       }
     } catch (err) {
       // Catch blocks default to check mock OTP
       if (otp === mockOtp || otp === '123456') {
-        const clientMock = { name: 'Rajesh Sharma', email: email, clientId: 'KFPL-1042' };
+        const clientMock = generateClientSession(email);
         localStorage.setItem('kfpl_client_auth', JSON.stringify({ token: 'mock-token', client: clientMock }));
-        navigate('/dashboard');
+        window.location.href = '/dashboard';
       } else {
         setOtpError('Invalid OTP code.');
       }

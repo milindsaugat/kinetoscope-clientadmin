@@ -11,6 +11,14 @@ export default function LineChart({ data, height = 220, color = '#10B981' }) {
   const padding = { top: 20, right: 20, bottom: 40, left: 10 };
   const width = 100; // Percentage-based
   
+  if (!data || data.length === 0) {
+    return (
+      <div className="kfpl-line-chart-wrap" style={{ height: `${height}px`, display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--color-text-muted)', fontSize: '0.875rem', background: 'rgba(255,255,255,0.02)', border: '1px dashed rgba(255,255,255,0.1)', borderRadius: '8px' }}>
+        No historical ROI earnings recorded yet.
+      </div>
+    );
+  }
+  
   const values = data.map(d => d.amount);
   const maxVal = Math.max(...values) * 1.15;
   const minVal = 0;

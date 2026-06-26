@@ -185,7 +185,7 @@ export default function Portfolio() {
               <strong>{drawerProject.status}</strong>
             </div>
             <div>
-              <span>Target ROI</span>
+              <span>Monthly ROI</span>
               <strong>{drawerProject.roi}</strong>
             </div>
             <div>
@@ -232,6 +232,14 @@ export default function Portfolio() {
     document.body
   );
 
+  const segmentTabs = useMemo(() => {
+    return [...new Set([
+      'All',
+      ...SEGMENTS,
+      ...projects.map(p => p.segment)
+    ])].filter(Boolean);
+  }, [projects]);
+
   return (
     <div className="kfpl-page kfpl-portfolio-page">
       <section className="kfpl-portfolio-hero">
@@ -244,7 +252,7 @@ export default function Portfolio() {
         </div>
         <div className="kfpl-portfolio-hero-panel">
           <span className="kfpl-portfolio-hero-label">Portfolio Coverage</span>
-          <strong>{SEGMENTS.length}</strong>
+          <strong>{segmentTabs.length - 1}</strong>
           <span>Entertainment investment segments</span>
         </div>
       </section>
@@ -261,7 +269,7 @@ export default function Portfolio() {
 
       <section className="kfpl-portfolio-toolbar" aria-label="Portfolio filters">
         <div className="kfpl-portfolio-tabs">
-          {['All', ...SEGMENTS].map(tab => {
+          {segmentTabs.map(tab => {
             const count = tab === 'All'
               ? enrichedProjects.length
               : enrichedProjects.filter(project => project.segment === tab).length;
@@ -314,7 +322,7 @@ export default function Portfolio() {
                   <strong>{project.status}</strong>
                 </div>
                 <div>
-                  <span>Target ROI</span>
+                  <span>Monthly ROI</span>
                   <strong>{project.roi}</strong>
                 </div>
                 <div>

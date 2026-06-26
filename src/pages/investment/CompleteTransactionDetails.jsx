@@ -9,8 +9,10 @@ import {
   mockROIHistory,
   formatCurrency
 } from '../../data/mockData';
+import { useToast } from '../../components/ui/Toast';
 
 export default function CompleteTransactionDetails() {
+  const addToast = useToast();
   const [filter, setFilter] = useState('all');
   const [searchQuery, setSearchQuery] = useState('');
   const [records, setRecords] = useState([]);
@@ -43,6 +45,31 @@ export default function CompleteTransactionDetails() {
     }
   }, []);
 
+  const handleExportCSV = () => {
+    const headers = ['Month / Period', 'Amount (₹)', 'Payment Mode', 'Transaction Ref', 'Status', 'Paid At'];
+    const rows = filteredRecords.map(r => [
+      r.month,
+      r.amount,
+      r.paymentMode || '—',
+      r.transactionRef || '—',
+      r.status.toUpperCase(),
+      r.paidAt || '—'
+    ]);
+
+    const csvContent = [
+      headers.join(','),
+      ...rows.map(row => row.map(cell => `"${String(cell).replace(/"/g, '""')}"`).join(','))
+    ].join('\n');
+
+    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = `KFPL_Client_Transactions_${new Date().toISOString().split('T')[0]}.csv`;
+    link.click();
+    URL.revokeObjectURL(url);
+    addToast('Standard CSV exported successfully!', 'success', 'Export Success');
+  };
   const filteredRecords = records.filter(r => {
     if (filter !== 'all' && r.status !== filter) return false;
     if (searchQuery.trim()) {
@@ -68,6 +95,16 @@ export default function CompleteTransactionDetails() {
         <div className="kfpl-page-header-left">
           <h2 className="kfpl-page-title">Complete Transaction Details</h2>
           <p className="kfpl-page-subtitle">View your ROI payout history and status</p>
+        </div>
+        <div className="kfpl-page-header-actions" style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
+          <button className="kfpl-btn kfpl-btn--ghost kfpl-btn--sm" onClick={handleExportCSV}>
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ width: '16px', height: '16px', marginRight: '6px' }}>
+              <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
+              <polyline points="7 10 12 15 17 10" />
+              <line x1="12" y1="15" x2="12" y2="3" />
+            </svg>
+            Export CSV
+          </button>
         </div>
       </div>
 

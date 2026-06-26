@@ -51,6 +51,7 @@ export const REQUEST_CATEGORIES = [
   'Profile Update',
   'Investment Query',
   'Risk Profile Change',
+  'Contract Period Extended',
   'Payment Issue',
   'Document Request',
   'Other',

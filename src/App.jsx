@@ -26,6 +26,7 @@ import NewServiceRequest from './pages/service-requests/NewServiceRequest';
 import ServiceRequestDetail from './pages/service-requests/ServiceRequestDetail';
 import Profile from './pages/profile/Profile';
 import MediaFeed from './pages/media/MediaFeed';
+import MediaDetail from './pages/media/MediaDetail';
 import OnboardingDetails from './pages/onboarding/OnboardingDetails';
 import NotFound from './pages/NotFound';
 
@@ -52,6 +53,7 @@ export default function App() {
             <Route path="/service-requests/:id" element={<ServiceRequestDetail />} />
             <Route path="/profile" element={<Profile />} />
             <Route path="/media" element={<MediaFeed />} />
+            <Route path="/media/:id" element={<MediaDetail />} />
             <Route path="/onboarding/details" element={<OnboardingDetails />} />
           </Route>
 

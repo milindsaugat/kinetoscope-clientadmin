@@ -4,7 +4,8 @@
    ============================================================ */
 
 import { useState } from 'react';
-import { mockPaymentRequests } from '../../data/mockData';
+import { mockPaymentRequests, mockClient } from '../../data/mockData';
+import { useToast } from '../../components/ui/Toast';
 
 /* ── SVG Icons ─────────────────────── */
 const DepositIcon = () => (
@@ -21,14 +22,101 @@ const CreditCardIcon = () => (
 );
 
 export default function PaymentRequests() {
+  const { addToast } = useToast();
   const [activeTab, setActiveTab] = useState('deposit');
-  const [form, setForm] = useState({ amount: '', mode: 'Bank Transfer', reference: '', note: '', reason: '' });
+  const [form, setForm] = useState({ amount: '', mode: 'Bank Transfer', reference: '', note: '', reason: '', proofFile: '' });
 
   const formatAmount = (num) => `₹${Number(num).toLocaleString('en-IN')}`;
 
   const handleSubmit = (e) => {
     e.preventDefault();
-    setForm({ amount: '', mode: 'Bank Transfer', reference: '', note: '', reason: '' });
+    if (!form.amount) return;
+
+    if (activeTab === 'deposit' && !form.proofFile) {
+      addToast('error', 'Proof Required', 'Please upload a proof of deposit receipt!');
+      return;
+    }
+
+    try {
+      const storedApprovals = localStorage.getItem('kfpl_approvals');
+      let approvalsObj = { deposits: [], withdrawals: [] };
+      if (storedApprovals) {
+        approvalsObj = JSON.parse(storedApprovals);
+      }
+      
+      const newId = Date.now();
+      const today = new Date().toISOString().split('T')[0];
+
+      if (activeTab === 'deposit') {
+        const newDeposit = {
+          id: newId,
+          type: 'deposit',
+          investorName: mockClient.name,
+          clientId: mockClient.clientId,
+          amount: Number(form.amount),
+          date: today,
+          status: 'pending',
+          note: form.note || '',
+          mode: form.mode,
+          referenceId: form.reference || `TXN${newId}`,
+          proofFile: form.proofFile || '',
+        };
+        approvalsObj.deposits = [newDeposit, ...(approvalsObj.deposits || [])];
+      } else {
+        const newWithdrawal = {
+          id: newId,
+          type: 'withdrawal',
+          investorName: mockClient.name,
+          clientId: mockClient.clientId,
+          amount: Number(form.amount),
+          date: today,
+          status: 'pending',
+          note: form.note || '',
+          reason: form.reason || '',
+          bankName: mockClient.bankName || 'HDFC Bank',
+          accountNo: mockClient.accountNo || 'XXXX4567',
+          ifsc: mockClient.ifsc || 'HDFC0001234',
+        };
+        approvalsObj.withdrawals = [newWithdrawal, ...(approvalsObj.withdrawals || [])];
+      }
+
+      localStorage.setItem('kfpl_approvals', JSON.stringify(approvalsObj));
+
+      // Update client local data key for instantaneous display
+      const clientDataKey = `kfpl_client_data_${mockClient.clientId}`;
+      const storedClientData = localStorage.getItem(clientDataKey);
+      if (storedClientData) {
+        const clientData = JSON.parse(storedClientData);
+        if (!clientData.paymentRequests) clientData.paymentRequests = [];
+        
+        const newClientReq = {
+          id: newId,
+          type: activeTab === 'deposit' ? 'Deposit' : 'Withdrawal',
+          amount: Number(form.amount),
+          date: today,
+          status: 'Pending',
+          mode: form.mode,
+          note: form.note || '',
+          reference: form.reference || '',
+          reason: form.reason || '',
+          proofFile: form.proofFile || '',
+        };
+        clientData.paymentRequests = [newClientReq, ...clientData.paymentRequests];
+        localStorage.setItem(clientDataKey, JSON.stringify(clientData));
+      }
+
+      addToast('success', 'Request Submitted', `${activeTab === 'deposit' ? 'Deposit' : 'Withdrawal'} request submitted successfully!`);
+      
+      setForm({ amount: '', mode: 'Bank Transfer', reference: '', note: '', reason: '', proofFile: '' });
+      
+      setTimeout(() => {
+        window.location.reload();
+      }, 1000);
+
+    } catch (err) {
+      console.error('Error submitting payment request:', err);
+      addToast('error', 'Submission Failed', 'Failed to submit request.');
+    }
   };
 
   const totalDeposits = mockPaymentRequests.filter(r => r.type === 'Deposit').reduce((s, r) => s + r.amount, 0);
@@ -108,10 +196,102 @@ export default function PaymentRequests() {
               </select>
             </div>
             {activeTab === 'deposit' && (
-              <div className="kfpl-input-group">
-                <label className="kfpl-input-label">Reference Number</label>
-                <input className="kfpl-input" placeholder="Transaction reference (optional)" value={form.reference} onChange={e => setForm({ ...form, reference: e.target.value })} />
-              </div>
+              <>
+                <div className="kfpl-input-group">
+                  <label className="kfpl-input-label">Reference Number</label>
+                  <input className="kfpl-input" placeholder="Transaction reference (optional)" value={form.reference} onChange={e => setForm({ ...form, reference: e.target.value })} />
+                </div>
+                <div className="kfpl-input-group">
+                  <label className="kfpl-input-label">Proof of Deposit (Receipt/Screenshot) <span className="required">*</span></label>
+                  <div 
+                    className="kfpl-proof-upload-box"
+                    style={{
+                      border: '2px dashed var(--color-border)',
+                      borderRadius: '8px',
+                      padding: '20px',
+                      textAlign: 'center',
+                      cursor: 'pointer',
+                      background: 'var(--color-surface)',
+                      position: 'relative',
+                      transition: 'all 0.2s ease-in-out',
+                    }}
+                    onMouseOver={(e) => e.currentTarget.style.borderColor = 'var(--color-gold)'}
+                    onMouseOut={(e) => e.currentTarget.style.borderColor = 'var(--color-border)'}
+                  >
+                    {form.proofFile ? (
+                      <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '8px' }}>
+                        {form.proofFile.type && form.proofFile.type.startsWith('image/') ? (
+                          <img 
+                            src={form.proofFile.data} 
+                            alt="Proof Preview" 
+                            style={{ maxWidth: '120px', maxHeight: '100px', borderRadius: '4px', border: '1px solid var(--color-border)', objectFit: 'contain' }} 
+                          />
+                        ) : (
+                          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', background: '#f8fafc', padding: '10px 16px', borderRadius: '8px', border: '1px solid #e2e8f0', gap: '10px' }}>
+                            <svg viewBox="0 0 24 24" width="32" height="32" fill="none" stroke={form.proofFile.name && (form.proofFile.name.endsWith('.pdf') ? '#ef4444' : '#2563eb')} strokeWidth="2">
+                              <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
+                              <polyline points="14 2 14 8 20 8"/>
+                              <line x1="16" y1="13" x2="8" y2="13"/>
+                              <line x1="16" y1="17" x2="8" y2="17"/>
+                            </svg>
+                            <div style={{ textAlign: 'left' }}>
+                              <div style={{ fontSize: '0.85rem', fontWeight: '600', color: 'var(--color-text)', maxWidth: '180px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{form.proofFile.name}</div>
+                              <div style={{ fontSize: '0.725rem', color: 'var(--color-text-muted)' }}>{form.proofFile.size}</div>
+                            </div>
+                          </div>
+                        )}
+                        <span style={{ fontSize: '0.8rem', color: 'var(--color-text-muted)', fontWeight: '500' }}>File Attached</span>
+                        <button 
+                          type="button" 
+                          className="kfpl-btn kfpl-btn--danger"
+                          style={{ padding: '4px 8px', fontSize: '0.75rem', height: 'auto', minHeight: '0' }}
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            setForm(prev => ({ ...prev, proofFile: '' }));
+                          }}
+                        >
+                          Remove Proof
+                        </button>
+                      </div>
+                    ) : (
+                      <div>
+                        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" style={{ color: 'var(--color-text-muted)', marginBottom: '8px' }}>
+                          <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4M17 8l-5-5-5 5M12 3v12"/>
+                        </svg>
+                        <div style={{ fontSize: '0.9rem', fontWeight: '500', color: 'var(--color-text)' }}>Click to upload proof receipt</div>
+                        <div style={{ fontSize: '0.75rem', color: 'var(--color-text-muted)', marginTop: '4px' }}>PNG, JPG, PDF, DOC, XLS, TXT (max 2MB)</div>
+                        <input 
+                          type="file" 
+                          accept="image/*,application/pdf,.doc,.docx,.xls,.xlsx,.txt" 
+                          style={{ position: 'absolute', top: 0, left: 0, width: '100%', height: '100%', opacity: 0, cursor: 'pointer' }} 
+                          onChange={(e) => {
+                            const file = e.target.files[0];
+                            if (file) {
+                              const reader = new FileReader();
+                              reader.onload = (event) => {
+                                let sizeStr = `${(file.size / 1024).toFixed(1)} KB`;
+                                if (file.size > 1024 * 1024) {
+                                  sizeStr = `${(file.size / (1024 * 1024)).toFixed(1)} MB`;
+                                }
+                                setForm(prev => ({
+                                  ...prev,
+                                  proofFile: {
+                                    name: file.name,
+                                    type: file.type,
+                                    size: sizeStr,
+                                    data: event.target.result
+                                  }
+                                }));
+                              };
+                              reader.readAsDataURL(file);
+                            }
+                          }}
+                        />
+                      </div>
+                    )}
+                  </div>
+                </div>
+              </>
             )}
             {activeTab === 'withdrawal' && (
               <div className="kfpl-input-group">

@@ -6,11 +6,17 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { RISK_PROFILES, NOMINEE_RELATIONS } from '../../constants';
+import { mockClient } from '../../data/mockData';
 
 export default function OnboardingDetails() {
   const navigate = useNavigate();
   const [step, setStep] = useState(1);
-  const [nominee, setNominee] = useState({ name: '', relation: 'Spouse', contact: '', email: '' });
+  const [nominee, setNominee] = useState({
+    name: mockClient.nominee?.name || '',
+    relation: mockClient.nominee?.relation || 'Spouse',
+    contact: mockClient.nominee?.contact || '',
+    email: mockClient.nominee?.email || ''
+  });
   const [selectedRisk, setSelectedRisk] = useState(null);
   const [confirmed, setConfirmed] = useState(false);
 
@@ -21,6 +27,29 @@ export default function OnboardingDetails() {
 
   const handleComplete = () => {
     if (!selectedRisk || !confirmed) return;
+    
+    // Save to localStorage
+    const auth = localStorage.getItem('kfpl_client_auth');
+    if (auth) {
+      try {
+        const parsed = JSON.parse(auth);
+        if (parsed && parsed.client) {
+          parsed.client.nominee = nominee;
+          parsed.client.riskProfile = selectedRisk;
+          parsed.client.onboardingComplete = true;
+          parsed.client.riskProfileLocked = true;
+          
+          // Save active session
+          localStorage.setItem('kfpl_client_auth', JSON.stringify(parsed));
+          
+          // Save dynamic client session to keep it persistent across logouts
+          const sessionKey = `kfpl_client_session_${parsed.client.email.toLowerCase()}`;
+          localStorage.setItem(sessionKey, JSON.stringify(parsed.client));
+        }
+      } catch (e) {
+        console.error(e);
+      }
+    }
     navigate('/dashboard');
   };
 
