@@ -19,8 +19,21 @@ export default function Profile() {
   const tabParam = searchParams.get('tab') || 'details';
   const [activeTab, setActiveTab] = useState(tabParam);
 
-  const [editingNominee, setEditingNominee] = useState(false);
-  const [nominee, setNominee] = useState({ ...mockClient.nominee });
+  const [clientEmail, setClientEmail] = useState(mockClient.email);
+
+  useEffect(() => {
+    const authData = localStorage.getItem('kfpl_client_auth');
+    if (authData) {
+      try {
+        const parsed = JSON.parse(authData);
+        const email = parsed.client?.email || parsed.email || mockClient.email;
+        setClientEmail(email);
+      } catch (err) {
+        console.error(err);
+      }
+    }
+  }, []);
+
   const riskProfile = RISK_PROFILES.find(r => r.id === mockClient.riskProfile);
 
   // Sync tab with URL parameter changes
@@ -35,10 +48,6 @@ export default function Profile() {
     setSearchParams({ tab: tabName });
   };
 
-  const handleNomineeSave = () => {
-    setEditingNominee(false);
-    addToast('success', 'Changes Saved', 'Nominee details updated successfully.');
-  };
 
   /* ── 2FA Toggle State ──────────────── */
   const [tfaEnabled, setTfaEnabled] = useState(
@@ -56,76 +65,7 @@ export default function Profile() {
     }
   };
 
-  /* ── Email Change States ───────────── */
-  const [emailForm, setEmailForm] = useState({ currentEmail: mockClient.email, newEmail: '' });
-  const [emailOtpSent, setEmailOtpSent] = useState(false);
-  const [emailOtpCode, setEmailOtpCode] = useState('');
-  const [emailOtpInput, setEmailOtpInput] = useState('');
-  const [emailResendTimer, setEmailResendTimer] = useState(0);
 
-  // Email Timer effect
-  useEffect(() => {
-    let interval = null;
-    if (emailOtpSent && emailResendTimer > 0) {
-      interval = setInterval(() => {
-        setEmailResendTimer(prev => prev - 1);
-      }, 1000);
-    } else if (emailResendTimer === 0) {
-      clearInterval(interval);
-    }
-    return () => clearInterval(interval);
-  }, [emailOtpSent, emailResendTimer]);
-
-  const handleSendEmailOtp = () => {
-    if (!emailForm.newEmail) {
-      addToast('error', 'Error', 'Please enter a valid email address.');
-      return;
-    }
-    if (emailForm.newEmail.toLowerCase() === emailForm.currentEmail.toLowerCase()) {
-      addToast('error', 'Error', 'New email must be different from current email.');
-      return;
-    }
-
-    // Generate mock 6-digit OTP
-    const code = String(Math.floor(100000 + Math.random() * 900000));
-    setEmailOtpCode(code);
-    setEmailOtpSent(true);
-    setEmailResendTimer(30);
-    
-    // Alert the code to the user as simulated email receipt
-    addToast('info', 'Verification Code Sent', `Mock OTP sent to new email: ${code}`);
-  };
-
-  const handleVerifyEmail = (e) => {
-    e.preventDefault();
-    if (emailOtpInput === emailOtpCode) {
-      // Success: update state
-      setEmailForm(prev => ({ ...prev, currentEmail: emailForm.newEmail, newEmail: '' }));
-      setEmailOtpSent(false);
-      setEmailOtpInput('');
-      setEmailOtpCode('');
-      
-      // Persist new email in localStorage
-      const authData = localStorage.getItem('kfpl_client_auth');
-      if (authData) {
-        try {
-          const parsed = JSON.parse(authData);
-          if (parsed.client) {
-            parsed.client.email = emailForm.newEmail;
-          } else {
-            parsed.email = emailForm.newEmail;
-          }
-          localStorage.setItem('kfpl_client_auth', JSON.stringify(parsed));
-        } catch (err) {
-          console.error(err);
-        }
-      }
-
-      addToast('success', 'Email Updated', `Email changed to ${emailForm.newEmail} successfully.`);
-    } else {
-      addToast('error', 'Verification Failed', 'Incorrect OTP. Please try again.');
-    }
-  };
 
   /* ── Password Change States ────────── */
   const [passForm, setPassForm] = useState({ currentPass: '', newPass: '', confirmPass: '' });
@@ -175,6 +115,10 @@ export default function Profile() {
 
   const handleVerifyPassword = (e) => {
     e.preventDefault();
+    if (passOtpInput.length !== 6) {
+      addToast('error', 'Verification Failed', 'Please enter a valid 6-digit OTP.');
+      return;
+    }
     if (passOtpInput === passOtpCode) {
       setPassForm({ currentPass: '', newPass: '', confirmPass: '' });
       setPassOtpSent(false);
@@ -246,7 +190,7 @@ export default function Profile() {
               <h3 style={{ marginBottom: '16px', paddingBottom: '12px', borderBottom: '2px solid var(--color-gold)' }}>Personal Information</h3>
               {[
                 ['Full Name', mockClient.name],
-                ['Email Address', emailForm.currentEmail],
+                ['Email Address', clientEmail],
                 ['Phone Number', mockClient.phone],
                 ['Date of Birth', new Date(mockClient.dob).toLocaleDateString('en-IN', { day: 'numeric', month: 'long', year: 'numeric' })],
                 ['Address', mockClient.address],
@@ -283,47 +227,18 @@ export default function Profile() {
               <div className="kfpl-nominee-card-header">
                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
                 <h3 style={{ flex: 1 }}>Nominee Details</h3>
-                <button className="kfpl-btn kfpl-btn--ghost kfpl-btn--sm" onClick={() => setEditingNominee(!editingNominee)}>
-                  {editingNominee ? 'Cancel' : 'Edit'}
-                </button>
               </div>
-              {!editingNominee ? (
-                <>
-                  {[
-                    ['Nominee Name', nominee.name],
-                    ['Relation', nominee.relation],
-                    ['Contact', nominee.contact],
-                    ['Email Address', nominee.email || 'Not provided'],
-                  ].map(([label, value]) => (
-                    <div key={label} className="kfpl-profile-info-row">
-                      <span className="kfpl-profile-info-label">{label}</span>
-                      <span className="kfpl-profile-info-value">{value}</span>
-                    </div>
-                  ))}
-                </>
-              ) : (
-                <div className="kfpl-form" style={{ gap: '12px' }}>
-                  <div className="kfpl-input-group">
-                    <label className="kfpl-input-label">Name <span className="required">*</span></label>
-                    <input className="kfpl-input" value={nominee.name} onChange={e => setNominee({ ...nominee, name: e.target.value })} />
-                  </div>
-                  <div className="kfpl-input-group">
-                    <label className="kfpl-input-label">Relation <span className="required">*</span></label>
-                    <select className="kfpl-select" value={nominee.relation} onChange={e => setNominee({ ...nominee, relation: e.target.value })}>
-                      {NOMINEE_RELATIONS.map(r => <option key={r} value={r}>{r}</option>)}
-                    </select>
-                  </div>
-                  <div className="kfpl-input-group">
-                    <label className="kfpl-input-label">Contact</label>
-                    <input className="kfpl-input" value={nominee.contact} onChange={e => setNominee({ ...nominee, contact: e.target.value })} />
-                  </div>
-                  <div className="kfpl-input-group">
-                    <label className="kfpl-input-label">Email</label>
-                    <input className="kfpl-input" value={nominee.email} onChange={e => setNominee({ ...nominee, email: e.target.value })} />
-                  </div>
-                  <button className="kfpl-btn kfpl-btn--primary kfpl-btn--sm" onClick={handleNomineeSave}>Save Changes</button>
+              {[
+                ['Nominee Name', mockClient.nominee?.name],
+                ['Relation', mockClient.nominee?.relation],
+                ['Contact', mockClient.nominee?.contact],
+                ['Email Address', mockClient.nominee?.email || 'Not provided'],
+              ].map(([label, value]) => (
+                <div key={label} className="kfpl-profile-info-row">
+                  <span className="kfpl-profile-info-label">{label}</span>
+                  <span className="kfpl-profile-info-value">{value}</span>
                 </div>
-              )}
+              ))}
             </div>
 
             {/* Risk Profile */}
@@ -354,106 +269,25 @@ export default function Profile() {
         {/* ==================== TAB 2: Security & 2FA ==================== */}
         {activeTab === 'security' && (
           <div className="kfpl-profile-grid">
-            {/* 2FA Toggle & Email Settings */}
-            <div className="kfpl-card" style={{ display: 'flex', flexDirection: 'column', gap: '24px' }}>
-              <div>
-                <h3 style={{ marginBottom: '16px', paddingBottom: '12px', borderBottom: '2px solid var(--color-gold)' }}>Two-Factor Authentication</h3>
-                
-                <div className="kfpl-tfa-toggle-row" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '16px', background: 'var(--color-surface)', borderRadius: 'var(--radius-lg)', border: '1px solid var(--color-border-light)' }}>
-                  <div>
-                    <h4 style={{ fontSize: '0.875rem', fontWeight: 700, color: 'var(--color-text-primary)' }}>Secure Login with 2FA</h4>
-                    <p style={{ fontSize: '0.75rem', color: 'var(--color-text-muted)', marginTop: '4px', maxWidth: '280px', lineHeight: 1.4 }}>
-                      Require a verification OTP sent to your email whenever you sign in to your dashboard.
-                    </p>
-                  </div>
-                  
-                  {/* Switch toggle control */}
-                  <label className="kfpl-switch">
-                    <input type="checkbox" checked={tfaEnabled} onChange={handleTfaToggle} />
-                    <span className="kfpl-switch-slider"></span>
-                  </label>
+            {/* 2FA Toggle */}
+            <div className="kfpl-card">
+              <h3 style={{ marginBottom: '16px', paddingBottom: '12px', borderBottom: '2px solid var(--color-gold)' }}>Two-Factor Authentication</h3>
+              
+              <div className="kfpl-tfa-toggle-row" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '16px', background: 'var(--color-surface)', borderRadius: 'var(--radius-lg)', border: '1px solid var(--color-border-light)' }}>
+                <div>
+                  <h4 style={{ fontSize: '0.875rem', fontWeight: 700, color: 'var(--color-text-primary)' }}>Secure Login with 2FA</h4>
+                  <p style={{ fontSize: '0.75rem', color: 'var(--color-text-muted)', marginTop: '4px', maxWidth: '280px', lineHeight: 1.4 }}>
+                    Require a verification OTP sent to your email whenever you sign in to your dashboard.
+                  </p>
                 </div>
-              </div>
-
-              <div>
-                <h3 style={{ marginBottom: '16px', paddingBottom: '12px', borderBottom: '2px solid var(--color-gold)' }}>Change Email Address</h3>
                 
-                <div className="kfpl-form">
-                  <div className="kfpl-input-group">
-                    <label className="kfpl-input-label">Current Email</label>
-                    <input className="kfpl-input" type="email" value={emailForm.currentEmail} disabled />
-                  </div>
-                  
-                  <div className="kfpl-input-group">
-                    <label className="kfpl-input-label">New Email Address</label>
-                    <input 
-                      className="kfpl-input" 
-                      type="email" 
-                      placeholder="Enter new email id" 
-                      value={emailForm.newEmail} 
-                      disabled={emailOtpSent}
-                      onChange={e => setEmailForm({ ...emailForm, newEmail: e.target.value })} 
-                    />
-                  </div>
-
-                  {!emailOtpSent ? (
-                    <button 
-                      type="button" 
-                      className="kfpl-btn kfpl-btn--primary kfpl-btn--sm" 
-                      disabled={!emailForm.newEmail || emailForm.newEmail.toLowerCase() === emailForm.currentEmail.toLowerCase()}
-                      onClick={handleSendEmailOtp}
-                      style={{ alignSelf: 'flex-start' }}
-                    >
-                      Send OTP
-                    </button>
-                  ) : (
-                    <form onSubmit={handleVerifyEmail} className="kfpl-form" style={{ gap: '12px', marginTop: '4px' }}>
-                      <div className="kfpl-input-group">
-                        <label className="kfpl-input-label">Enter OTP <span className="required">*</span></label>
-                        <input 
-                          className="kfpl-input" 
-                          type="text" 
-                          maxLength="6"
-                          placeholder="6-digit code" 
-                          value={emailOtpInput} 
-                          onChange={e => setEmailOtpInput(e.target.value.replace(/\D/g, ''))}
-                          style={{ letterSpacing: '2px', fontWeight: 600 }}
-                        />
-                      </div>
-                      
-                      <div style={{ display: 'flex', alignItems: 'center', gap: '12px', flexWrap: 'wrap' }}>
-                        <button type="submit" className="kfpl-btn kfpl-btn--primary kfpl-btn--sm" disabled={emailOtpInput.length !== 6}>
-                          Verify & Change Email
-                        </button>
-                        
-                        <button 
-                          type="button" 
-                          className="kfpl-btn kfpl-btn--ghost kfpl-btn--sm"
-                          disabled={emailResendTimer > 0}
-                          onClick={handleSendEmailOtp}
-                        >
-                          {emailResendTimer > 0 ? `Resend OTP in ${emailResendTimer}s` : 'Resend OTP'}
-                        </button>
-                        
-                        <button 
-                          type="button" 
-                          className="kfpl-btn kfpl-btn--ghost kfpl-btn--sm"
-                          onClick={() => {
-                            setEmailOtpSent(false);
-                            setEmailOtpInput('');
-                            setEmailOtpCode('');
-                          }}
-                        >
-                          Cancel
-                        </button>
-                      </div>
-                    </form>
-                  )}
-                </div>
+                {/* Switch toggle control */}
+                <label className="kfpl-switch">
+                  <input type="checkbox" checked={tfaEnabled} onChange={handleTfaToggle} />
+                  <span className="kfpl-switch-slider"></span>
+                </label>
               </div>
             </div>
-
-            {/* Password Settings */}
             <div className="kfpl-card">
               <h3 style={{ marginBottom: '16px', paddingBottom: '12px', borderBottom: '2px solid var(--color-gold)' }}>Change Password</h3>
               
@@ -546,7 +380,6 @@ export default function Profile() {
                   <button 
                     type="button" 
                     className="kfpl-btn kfpl-btn--primary kfpl-btn--sm" 
-                    disabled={!passForm.currentPass || !passForm.newPass || !passForm.confirmPass || passForm.newPass !== passForm.confirmPass}
                     onClick={handleSendPassOtp}
                     style={{ alignSelf: 'flex-start' }}
                   >
@@ -568,7 +401,7 @@ export default function Profile() {
                     </div>
                     
                     <div style={{ display: 'flex', alignItems: 'center', gap: '12px', flexWrap: 'wrap' }}>
-                      <button type="submit" className="kfpl-btn kfpl-btn--primary kfpl-btn--sm" disabled={passOtpInput.length !== 6}>
+                      <button type="submit" className="kfpl-btn kfpl-btn--primary kfpl-btn--sm">
                         Verify & Change Password
                       </button>
                       
