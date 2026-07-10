@@ -336,8 +336,16 @@ export default function InvestmentOverview() {
             ? response 
             : (response.investments || response.data?.investments || (Array.isArray(response.data) ? response.data : []));
           if (Array.isArray(list)) {
-            setInvestments(list);
-            activeInvestments = list;
+            const normalizedList = list.map(inv => ({
+              ...inv,
+              amount: inv.investmentAmount || inv.amount || 0,
+              roiAllocated: inv.roiPercentage || inv.roiAllocated || inv.roi || 0,
+              roi: inv.roiPercentage || inv.roiAllocated || inv.roi || 0,
+              date: inv.investmentDate || inv.date || inv.createdAt,
+              contractPeriod: inv.durationMonths || inv.contractPeriod || 24
+            }));
+            setInvestments(normalizedList);
+            activeInvestments = normalizedList;
           }
           
           const rootData = response.data || response;

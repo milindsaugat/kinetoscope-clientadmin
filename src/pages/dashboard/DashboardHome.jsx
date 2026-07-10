@@ -119,7 +119,15 @@ export default function DashboardHome() {
           });
 
           if (root.investments) {
-            setInvestments(root.investments);
+            const normalizedList = root.investments.map(inv => ({
+              ...inv,
+              amount: inv.investmentAmount || inv.amount || 0,
+              roiAllocated: inv.roiPercentage || inv.roiAllocated || inv.roi || 0,
+              roi: inv.roiPercentage || inv.roiAllocated || inv.roi || 0,
+              date: inv.investmentDate || inv.date || inv.createdAt,
+              contractPeriod: inv.durationMonths || inv.contractPeriod || 24
+            }));
+            setInvestments(normalizedList);
           }
           if (root.roiHistory) {
             setRoiHistory(root.roiHistory);
