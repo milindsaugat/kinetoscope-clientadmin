@@ -344,16 +344,15 @@ export default function DashboardHome() {
                       <div
                         className="kfpl-card kfpl-status-slider-card"
                         style={{
-                          borderLeft: `5px solid ${accent}`,
                           padding: '24px',
                           display: 'flex',
                           flexDirection: 'column',
                           gap: '16px',
                           cursor: 'pointer',
                           background: '#ffffff',
-                          border: '1px solid var(--color-border-light)',
+                          border: '1.5px solid var(--color-border-light)',
                           borderRadius: '12px',
-                          boxShadow: '0 4px 20px rgba(0, 0, 0, 0.02)',
+                          boxShadow: '0 4px 16px rgba(6, 29, 19, 0.02)',
                           transition: 'transform 0.2s, box-shadow 0.2s',
                         }}
                         onClick={() => setSelectedUpdate(update)}
@@ -363,11 +362,11 @@ export default function DashboardHome() {
                             <span
                               className="kfpl-badge"
                               style={{
-                                background: `${accent}15`,
+                                background: `${accent}08`,
                                 color: accent,
-                                border: `1px solid ${accent}40`,
+                                border: `1px solid ${accent}20`,
                                 fontSize: '0.7rem',
-                                fontWeight: 700,
+                                fontWeight: 800,
                                 textTransform: 'uppercase',
                                 letterSpacing: '0.05em',
                                 padding: '4px 8px',
@@ -376,9 +375,12 @@ export default function DashboardHome() {
                             >
                               {update.segment}
                             </span>
-                            <h4 style={{ fontSize: '1.15rem', fontWeight: 800, color: 'var(--color-text)', marginTop: '8px', marginBottom: 0 }}>
-                              {update.type === 'segment' || !update.project ? 'Segment-Wide Update' : update.project}
-                            </h4>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginTop: '8px' }}>
+                              <span style={{ width: '8px', height: '8px', borderRadius: '50%', background: accent, display: 'inline-block', boxShadow: `0 0 6px ${accent}` }}></span>
+                              <h4 style={{ fontSize: '1.15rem', fontWeight: 800, color: 'var(--color-navy)', margin: 0, letterSpacing: '-0.2px' }}>
+                                {update.type === 'segment' || !update.project ? 'Segment-Wide Update' : update.project}
+                              </h4>
+                            </div>
                           </div>
                           <div style={{ textAlign: 'right' }}>
                             <span className="text-xs text-muted" style={{ display: 'block', fontWeight: 600 }}>{update.date}</span>
