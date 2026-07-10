@@ -344,15 +344,16 @@ export default function DashboardHome() {
                       <div
                         className="kfpl-card kfpl-status-slider-card"
                         style={{
-                          borderLeft: `4px solid ${accent}`,
-                          padding: '20px',
+                          borderLeft: `5px solid ${accent}`,
+                          padding: '24px',
                           display: 'flex',
                           flexDirection: 'column',
-                          gap: '12px',
+                          gap: '16px',
                           cursor: 'pointer',
-                          background: 'rgba(255, 255, 255, 0.03)',
-                          backdropFilter: 'blur(10px)',
-                          boxShadow: 'var(--shadow-card)',
+                          background: '#ffffff',
+                          border: '1px solid var(--color-border-light)',
+                          borderRadius: '12px',
+                          boxShadow: '0 4px 20px rgba(0, 0, 0, 0.02)',
                           transition: 'transform 0.2s, box-shadow 0.2s',
                         }}
                         onClick={() => setSelectedUpdate(update)}
