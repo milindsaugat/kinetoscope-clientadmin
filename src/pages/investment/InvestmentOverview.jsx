@@ -332,16 +332,20 @@ export default function InvestmentOverview() {
         const response = await apiRequest('/api/client/investments');
         let activeInvestments = [];
         if (response) {
-          const list = Array.isArray(response) ? response : (response.investments || response.data || []);
+          const list = Array.isArray(response) 
+            ? response 
+            : (response.investments || response.data?.investments || (Array.isArray(response.data) ? response.data : []));
           if (Array.isArray(list)) {
             setInvestments(list);
             activeInvestments = list;
           }
-          if (response.client || response.user) {
-            setClient(response.client || response.user);
+          
+          const rootData = response.data || response;
+          if (rootData.client || rootData.user || response.client || response.user) {
+            setClient(rootData.client || rootData.user || response.client || response.user);
           }
-          if (Array.isArray(response.roiHistory)) {
-            setRoiHistory(response.roiHistory);
+          if (Array.isArray(rootData.roiHistory) || Array.isArray(response.roiHistory)) {
+            setRoiHistory(rootData.roiHistory || response.roiHistory);
           }
         }
 

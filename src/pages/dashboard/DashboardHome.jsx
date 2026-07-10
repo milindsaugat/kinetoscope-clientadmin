@@ -91,25 +91,41 @@ export default function DashboardHome() {
       try {
         const response = await apiRequest('/api/client/dashboard');
         if (response) {
-          if (response.client || response.user) {
-            const rawClient = response.client || response.user;
-            setClient(prev => ({
-              ...prev,
-              ...rawClient,
-              name: rawClient.fullName || rawClient.name || prev.name || 'Investor'
-            }));
+          const root = response.data || response;
+          const rawClient = root.profile || root.client || root.user || {};
+          
+          setClient(prev => ({
+            ...prev,
+            ...rawClient,
+            name: rawClient.fullName || rawClient.name || prev.name || 'Investor'
+          }));
+
+          // Calculate expected monthly ROI
+          let monthlyRoiVal = 0;
+          if (Array.isArray(root.investments)) {
+            monthlyRoiVal = root.investments.reduce((sum, inv) => {
+              const amt = inv.investmentAmount || inv.amount || 0;
+              const roi = inv.roiPercentage || inv.roi || 0;
+              return sum + (amt * (roi / 100));
+            }, 0);
           }
-          if (response.stats) {
-            setStats(response.stats);
+
+          setStats({
+            totalInvested: root.totalInvestment !== undefined ? root.totalInvestment : (root.stats?.totalInvested || 0),
+            monthlyROI: monthlyRoiVal || root.stats?.monthlyROI || 0,
+            roiRate: root.roiAverage !== undefined ? root.roiAverage : (root.stats?.roiRate || 0),
+            perkTier: rawClient.tier || root.stats?.perkTier || 'Silver',
+            nextROIDate: root.nextRoiDate || root.stats?.nextROIDate || '—',
+          });
+
+          if (root.investments) {
+            setInvestments(root.investments);
           }
-          if (response.investments) {
-            setInvestments(response.investments);
+          if (root.roiHistory) {
+            setRoiHistory(root.roiHistory);
           }
-          if (response.roiHistory) {
-            setRoiHistory(response.roiHistory);
-          }
-          if (response.journey) {
-            setJourney(response.journey);
+          if (root.journey) {
+            setJourney(root.journey);
           }
         }
       } catch (err) {
