@@ -80,6 +80,8 @@ export default function DashboardHome() {
   };
 
   const [statusHistory, setStatusHistory] = useState([]);
+  const [clientHistoryLogs, setClientHistoryLogs] = useState([]);
+  const [expandedClientCards, setExpandedClientCards] = useState({});
   const [currentSlideIndex, setCurrentSlideIndex] = useState(0);
   const [selectedUpdate, setSelectedUpdate] = useState(null);
   const [showHistoryModal, setShowHistoryModal] = useState(false);
@@ -141,10 +143,40 @@ export default function DashboardHome() {
       }
     };
 
+    const fetchHistory = async () => {
+      try {
+        const data = await apiRequest('/api/client/projects/updates/history');
+        let list = [];
+        if (Array.isArray(data)) {
+          list = data;
+        } else if (data.history && Array.isArray(data.history)) {
+          list = data.history;
+        } else if (data.data && Array.isArray(data.data)) {
+          list = data.data;
+        } else if (data.data?.history && Array.isArray(data.data.history)) {
+          list = data.data.history;
+        }
+        const mappedHistory = list.map(h => ({
+          id: h._id || h.id,
+          type: h.type || 'project',
+          segment: h.segment || '',
+          project: h.project || h.projectName || '',
+          status: h.status || '',
+          progress: h.progress || 0,
+          note: h.notes || h.note || '',
+          date: h.date || (h.createdAt ? new Date(h.createdAt).toISOString().split('T')[0] : '—'),
+        }));
+        setClientHistoryLogs(mappedHistory);
+      } catch (err) {
+        console.warn('Could not fetch client project history logs:', err);
+      }
+    };
+
     const fetchProjects = async () => {
       try {
         const data = await apiRequest('/api/client/projects');
         const raw = extractProjects(data);
+        console.log('CLIENT PROJECTS RAW:', raw);
         const filteredRaw = raw.filter(p => p.name !== '__KFPL_DUMMY__');
         const mapped = filteredRaw.map(p => ({
           id: p._id || p.id,
@@ -152,13 +184,23 @@ export default function DashboardHome() {
           segment: p.segment || '',
           status: p.status || 'Planning',
           value: p.portfolioValue || p.value || '₹0 Cr',
-          milestone: p.milestoneProgress !== undefined ? p.milestoneProgress : (p.milestone !== undefined ? p.milestone : 0),
+          milestone: p.milestoneProgress !== undefined ? p.milestoneProgress : (p.progress !== undefined ? p.progress : 0),
           summary: p.summary || '',
           risk: p.riskLevel || p.risk || 'Medium',
           horizon: p.horizon || '',
           roi: p.monthlyRoi || p.roi || '',
           health: p.health || 'On Track',
+          bannerImg: p.bannerImage || p.bannerImg || '',
+          media: (p.mediaFiles || p.media || []).map((url, idx) => ({
+            id: url,
+            name: url.split('/').pop() || `File ${idx + 1}`,
+            type: url.match(/\.(jpeg|jpg|gif|png|webp)$/i) ? 'image/png' : 'application/pdf',
+            size: 0,
+            dataUrl: url,
+            uploadedAt: new Date().toISOString()
+          }))
         }));
+        console.log('CLIENT PROJECTS MAPPED:', mapped);
         setProjects(mapped);
 
         const liveUpdates = mapped.map((p, idx) => ({
@@ -170,7 +212,8 @@ export default function DashboardHome() {
           progress: p.milestone,
           note: p.summary || 'Project is under active development and tracking.',
           date: p.health || 'On Track',
-          media: []
+          bannerImg: p.bannerImg,
+          media: p.media || []
         }));
         setStatusHistory(liveUpdates);
       } catch (err) {
@@ -180,6 +223,7 @@ export default function DashboardHome() {
 
     fetchDashboard();
     fetchProjects();
+    fetchHistory();
   }, []);
 
   const SEGMENT_COLORS = {
@@ -332,6 +376,34 @@ export default function DashboardHome() {
               >
                 {statusHistory.map((update) => {
                   const accent = SEGMENT_COLORS[update.segment] || '#10B981';
+
+                  const cardUpdates = clientHistoryLogs.filter(h => {
+                    if (update.type === 'segment') {
+                      return h.segment === update.segment && h.type === 'segment';
+                    } else {
+                      return h.project === update.project;
+                    }
+                  });
+                  const sortedUpdates = [...cardUpdates].sort((a, b) => new Date(b.date) - new Date(a.date));
+                  const displayUpdates = sortedUpdates.length > 0
+                    ? sortedUpdates
+                    : [{ id: 'current', note: update.note, date: update.date, status: update.status, progress: update.progress }];
+
+                  const isExpanded = !!expandedClientCards[update.id];
+                  const firstTwo = displayUpdates.slice(0, 2);
+                  const remaining = displayUpdates.slice(2);
+
+                  // Extract project banner or first uploaded image attachment as fallback
+                  const projectImageItem = (update.media || []).find(m =>
+                    m.type?.startsWith('image/') ||
+                    m.dataUrl?.match(/\.(jpeg|jpg|gif|png|webp)$/i)
+                  );
+                  const historyImageItem = cardUpdates
+                    .flatMap(h => h.media || [])
+                    .find(m => m.type?.startsWith('image/') || m.dataUrl?.match(/\.(jpeg|jpg|gif|png|webp)$/i));
+
+                  const imageSrc = update.bannerImg || projectImageItem?.dataUrl || historyImageItem?.dataUrl || '';
+
                   return (
                     <div
                       key={update.id}
@@ -344,96 +416,224 @@ export default function DashboardHome() {
                       <div
                         className="kfpl-card kfpl-status-slider-card"
                         style={{
-                          padding: '24px',
+                          padding: '0',
+                          borderRadius: '16px',
+                          border: '1px solid #e2e8f0',
+                          background: '#ffffff',
                           display: 'flex',
                           flexDirection: 'column',
-                          gap: '16px',
-                          cursor: 'pointer',
-                          background: '#ffffff',
-                          border: '1.5px solid var(--color-border-light)',
-                          borderRadius: '12px',
-                          boxShadow: '0 4px 16px rgba(6, 29, 19, 0.02)',
-                          transition: 'transform 0.2s, box-shadow 0.2s',
+                          boxShadow: '0 4px 20px rgba(0, 0, 0, 0.03)'
                         }}
-                        onClick={() => setSelectedUpdate(update)}
                       >
-                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
-                          <div>
-                            <span
-                              className="kfpl-badge"
-                              style={{
-                                background: `${accent}08`,
-                                color: accent,
-                                border: `1px solid ${accent}20`,
-                                fontSize: '0.7rem',
-                                fontWeight: 800,
-                                textTransform: 'uppercase',
+                        {/* ── IMAGE SECTION WITH ROUNDED EDGES ── */}
+                        {imageSrc ? (
+                          <div style={{ margin: '14px 14px 0', borderRadius: '12px', height: '160px', overflow: 'hidden', position: 'relative' }}>
+                            <img
+                              src={imageSrc}
+                              alt={update.project}
+                              style={{ width: '100%', height: '100%', objectFit: 'cover' }}
+                            />
+                            <div style={{
+                              position: 'absolute', inset: 0,
+                              background: 'linear-gradient(to bottom, rgba(0,0,0,0) 0%, rgba(0,0,0,0.3) 100%)'
+                            }} />
+                            <div style={{ position: 'absolute', bottom: '12px', left: '12px', zIndex: 2 }}>
+                              <span style={{
+                                fontSize: '0.68rem', fontWeight: 700, color: '#fff',
                                 letterSpacing: '0.05em',
-                                padding: '4px 8px',
-                                borderRadius: '4px'
-                              }}
-                            >
-                              {update.segment}
-                            </span>
-                            <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginTop: '8px' }}>
-                              <span style={{ width: '8px', height: '8px', borderRadius: '50%', background: accent, display: 'inline-block', boxShadow: `0 0 6px ${accent}` }}></span>
-                              <h4 style={{ fontSize: '1.15rem', fontWeight: 800, color: 'var(--color-navy)', margin: 0, letterSpacing: '-0.2px' }}>
-                                {update.type === 'segment' || !update.project ? 'Segment-Wide Update' : update.project}
-                              </h4>
+                                padding: '4px 12px', borderRadius: '20px',
+                                background: accent, boxShadow: '0 4px 12px rgba(0,0,0,0.2)',
+                                display: 'inline-block',
+                                backdropFilter: 'blur(4px)'
+                              }}>{update.segment}</span>
                             </div>
                           </div>
-                          <div style={{ textAlign: 'right' }}>
-                            <span className="text-xs text-muted" style={{ display: 'block', fontWeight: 600 }}>{update.date}</span>
-                            <span
-                              className="kfpl-badge"
-                              style={{
-                                background: 'var(--color-surface-alt)',
-                                border: '1px solid var(--color-border)',
-                                fontSize: '0.65rem',
-                                color: 'var(--color-text-secondary)',
-                                padding: '2px 6px',
-                                borderRadius: '4px',
-                                marginTop: '4px',
-                                display: 'inline-block'
-                              }}
-                            >
-                              {update.status}
+                        ) : (
+                          <div style={{
+                            margin: '14px 14px 0',
+                            borderRadius: '12px',
+                            height: '140px',
+                            background: `linear-gradient(135deg, ${accent}0d 0%, ${accent}03 100%)`,
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'center',
+                            border: '1px solid #f1f5f9',
+                            position: 'relative'
+                          }}>
+                            <span style={{ fontSize: '2.5rem', fontWeight: 900, color: accent, opacity: 0.18, letterSpacing: '-1px' }}>
+                              {update.project ? update.project.substring(0, 2).toUpperCase() : update.segment.substring(0, 2).toUpperCase()}
                             </span>
+                            <div style={{ position: 'absolute', bottom: '12px', left: '12px' }}>
+                              <span style={{
+                                fontSize: '0.68rem', fontWeight: 700, color: '#fff',
+                                letterSpacing: '0.05em',
+                                padding: '4px 12px', borderRadius: '20px',
+                                background: accent, boxShadow: '0 4px 12px rgba(0,0,0,0.2)',
+                                display: 'inline-block',
+                                backdropFilter: 'blur(4px)'
+                              }}>{update.segment}</span>
+                            </div>
                           </div>
-                        </div>
+                        )}
 
-                        {/* Description */}
-                        <p style={{
-                          fontSize: '0.875rem',
-                          color: 'var(--color-text-secondary)',
-                          lineHeight: '1.5',
-                          margin: 0,
-                          display: '-webkit-box',
-                          WebkitLineClamp: 2,
-                          WebkitBoxOrient: 'vertical',
-                          overflow: 'hidden',
-                          fontStyle: 'italic'
-                        }}>
-                          "{update.note}"
-                        </p>
-
-                        {/* Progress and Attachments Footer */}
-                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: '4px' }}>
-                          <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flex: 1, maxWidth: '200px' }}>
-                            <span className="text-xs text-muted" style={{ fontWeight: 600, minWidth: '30px' }}>{update.progress}%</span>
-                            <div className="kfpl-progress" style={{ height: '6px', flex: 1, margin: 0 }}>
-                              <div className="kfpl-progress-fill" style={{ width: `${update.progress}%`, background: accent }}></div>
+                        {/* ── CARD BODY ── */}
+                        <div style={{ padding: '16px 20px', flex: 1, display: 'flex', flexDirection: 'column', gap: '14px' }}>
+                          
+                          {/* Title + Badges */}
+                          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: '12px' }}>
+                            <div style={{ minWidth: 0 }}>
+                              <h3 style={{
+                                fontSize: '1.15rem', fontWeight: 700, color: '#0f172a', margin: 0,
+                                letterSpacing: '-0.3px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap'
+                              }}>
+                                {update.type === 'segment' || !update.project ? `${update.segment} Segment Update` : update.project}
+                              </h3>
+                              <span style={{ fontSize: '0.7rem', color: '#64748b', fontWeight: 500, marginTop: '2px', display: 'block' }}>
+                                Last Active: {update.date}
+                              </span>
+                            </div>
+                            <div style={{ display: 'flex', gap: '4px', flexWrap: 'wrap', flexShrink: 0 }}>
+                              <span style={{
+                                fontSize: '0.65rem', fontWeight: 700,
+                                color: '#10b981', background: '#10b98115',
+                                padding: '2px 8px', borderRadius: '4px', border: '1px solid #10b98125'
+                              }}>{update.status}</span>
                             </div>
                           </div>
 
+                          {/* Progress bar container */}
+                          <div style={{ background: '#f8fafc', padding: '10px 12px', borderRadius: '8px', border: '1px solid #f1f5f9' }}>
+                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '6px' }}>
+                              <span style={{ fontSize: '0.7rem', fontWeight: 700, color: '#475569' }}>Milestone Progress</span>
+                              <span style={{ fontSize: '0.72rem', fontWeight: 800, color: accent }}>{update.progress}%</span>
+                            </div>
+                            <div style={{ height: '5px', background: '#e2e8f0', borderRadius: '3.5px', overflow: 'hidden' }}>
+                              <div style={{ width: `${update.progress}%`, height: '100%', background: accent, borderRadius: '3.5px', transition: 'width 0.4s ease' }} />
+                            </div>
+                          </div>
+
+                          {/* Updates Accordion Section */}
+                          <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                            <span style={{ fontSize: '0.65rem', fontWeight: 700, color: '#94a3b8', textTransform: 'uppercase', letterSpacing: '0.06em' }}>
+                              Timeline Logs & Updates
+                            </span>
+                            
+                            {/* First 2 updates */}
+                            <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                              {firstTwo.map((up, idx) => (
+                                <div key={up.id || idx} style={{ display: 'flex', gap: '8px', alignItems: 'flex-start' }}>
+                                  <div style={{ width: '5px', height: '5px', borderRadius: '50%', background: accent, marginTop: '6px', flexShrink: 0 }} />
+                                  <div style={{ flex: 1, minWidth: 0 }}>
+                                    <div style={{ display: 'flex', alignItems: 'center', gap: '6px', flexWrap: 'wrap' }}>
+                                      <span style={{ fontSize: '0.68rem', color: '#94a3b8', fontWeight: 600 }}>{up.date}</span>
+                                      {up.status && <span style={{ fontSize: '0.58rem', color: accent, background: `${accent}10`, padding: '1px 4px', borderRadius: '3px', fontWeight: 700 }}>{up.status}</span>}
+                                    </div>
+                                    <p style={{ fontSize: '0.8rem', color: '#334155', lineHeight: 1.5, margin: '2px 0 0' }}>
+                                      {up.note}
+                                    </p>
+                                  </div>
+                                </div>
+                              ))}
+                            </div>
+
+                            {/* Accordion panel for remaining updates */}
+                            {remaining.length > 0 && (
+                              <div>
+                                <div
+                                  style={{
+                                    maxHeight: isExpanded ? '1000px' : '0px',
+                                    overflow: 'hidden',
+                                    transition: 'max-height 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
+                                    display: 'flex',
+                                    flexDirection: 'column',
+                                    gap: '8px',
+                                    marginTop: isExpanded ? '8px' : '0'
+                                  }}
+                                >
+                                  {remaining.map((up, idx) => (
+                                    <div key={up.id || idx} style={{ display: 'flex', gap: '8px', alignItems: 'flex-start' }}>
+                                      <div style={{ width: '5px', height: '5px', borderRadius: '50%', background: '#cbd5e1', marginTop: '6px', flexShrink: 0 }} />
+                                      <div style={{ flex: 1, minWidth: 0 }}>
+                                        <div style={{ display: 'flex', alignItems: 'center', gap: '6px', flexWrap: 'wrap' }}>
+                                          <span style={{ fontSize: '0.68rem', color: '#94a3b8', fontWeight: 600 }}>{up.date}</span>
+                                          {up.status && <span style={{ fontSize: '0.58rem', color: '#64748b', background: '#f1f5f9', padding: '1px 4px', borderRadius: '3px', fontWeight: 700 }}>{up.status}</span>}
+                                        </div>
+                                        <p style={{ fontSize: '0.8rem', color: '#475569', lineHeight: 1.5, margin: '2px 0 0' }}>
+                                          {up.note}
+                                        </p>
+                                      </div>
+                                    </div>
+                                  ))}
+                                </div>
+
+                                {/* Accordion Toggle Trigger Button */}
+                                <button
+                                  onClick={() => setExpandedClientCards(prev => ({ ...prev, [update.id]: !isExpanded }))}
+                                  style={{
+                                    background: 'none', border: 'none', color: accent, fontSize: '0.72rem',
+                                    fontWeight: 700, cursor: 'pointer', padding: '4px 0 0', display: 'flex',
+                                    alignItems: 'center', gap: '3px', outline: 'none'
+                                  }}
+                                >
+                                  {isExpanded ? 'Show Less' : `View More Updates (+${remaining.length})`}
+                                  <svg
+                                    viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"
+                                    style={{ width: 10, height: 10, transform: isExpanded ? 'rotate(180deg)' : 'none', transition: 'transform 0.2s' }}
+                                  >
+                                    <polyline points="6 9 12 15 18 9" />
+                                  </svg>
+                                </button>
+                              </div>
+                            )}
+                          </div>
+
+                          {/* Media attachments */}
                           {(update.media || []).length > 0 && (
-                            <span style={{ fontSize: '0.75rem', color: 'var(--color-success)', fontWeight: 600, display: 'flex', alignItems: 'center', gap: '4px' }}>
-                              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" style={{ width: 12, height: 12 }}>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '5px', marginTop: '4px', paddingTop: '10px', borderTop: '1px solid #f1f5f9' }}>
+                              <svg viewBox="0 0 24 24" fill="none" stroke={accent} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ width: 12, height: 12 }}>
                                 <path d="M21.44 11.05l-9.19 9.19a6 6 0 0 1-8.49-8.49l9.19-9.19a4 4 0 0 1 5.66 5.66l-9.2 9.19a2 2 0 0 1-2.83-2.83l8.49-8.48" />
                               </svg>
-                              {update.media.length} File(s)
-                            </span>
+                              <span style={{ fontSize: '0.72rem', color: accent, fontWeight: 600 }}>{update.media.length} attachment(s)</span>
+                            </div>
                           )}
+
+                          {/* Premium Segmented Action Buttons Row */}
+                          <div style={{ display: 'flex', gap: '8px', marginTop: '8px', paddingTop: '12px', borderTop: '1px solid #f1f5f9', justifyContent: 'flex-end' }}>
+                            <button
+                              onClick={(e) => { e.stopPropagation(); setSelectedUpdate(update); }}
+                              style={{
+                                display: 'inline-flex', alignItems: 'center', gap: '5px',
+                                padding: '6px 12px', borderRadius: '8px', border: '1px solid #e2e8f0',
+                                background: '#fff', color: '#475569', fontSize: '0.72rem', fontWeight: 600,
+                                cursor: 'pointer', transition: 'all 0.15s ease'
+                              }}
+                              onMouseEnter={e => { e.currentTarget.style.borderColor = accent; e.currentTarget.style.color = accent; }}
+                              onMouseLeave={e => { e.currentTarget.style.borderColor = '#e2e8f0'; e.currentTarget.style.color = '#475569'; }}
+                            >
+                              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" style={{ width: 12, height: 12 }}>
+                                <circle cx="12" cy="12" r="10"/><path d="M12 16v-4"/><path d="M12 8h.01"/>
+                              </svg>
+                              Details
+                            </button>
+                            
+                            <button
+                              onClick={(e) => { e.stopPropagation(); setShowHistoryModal(true); }}
+                              style={{
+                                display: 'inline-flex', alignItems: 'center', gap: '5px',
+                                padding: '6px 12px', borderRadius: '8px', border: '1px solid #e2e8f0',
+                                background: '#fff', color: '#475569', fontSize: '0.72rem', fontWeight: 600,
+                                cursor: 'pointer', transition: 'all 0.15s ease'
+                              }}
+                              onMouseEnter={e => { e.currentTarget.style.borderColor = accent; e.currentTarget.style.color = accent; }}
+                              onMouseLeave={e => { e.currentTarget.style.borderColor = '#e2e8f0'; e.currentTarget.style.color = '#475569'; }}
+                            >
+                              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" style={{ width: 12, height: 12 }}>
+                                <path d="M12 8v4l3 3"/>
+                                <circle cx="12" cy="12" r="10"/>
+                              </svg>
+                              History
+                            </button>
+                          </div>
                         </div>
                       </div>
                     </div>
