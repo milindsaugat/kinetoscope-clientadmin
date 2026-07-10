@@ -3,9 +3,10 @@
    Description: Deposit/Withdrawal request forms and history
    ============================================================ */
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { mockPaymentRequests, mockClient } from '../../data/mockData';
 import { useToast } from '../../components/ui/Toast';
+import { apiRequest } from '../../config/apiHelper';
 
 /* ── SVG Icons ─────────────────────── */
 const DepositIcon = () => (
@@ -25,10 +26,80 @@ export default function PaymentRequests() {
   const { addToast } = useToast();
   const [activeTab, setActiveTab] = useState('deposit');
   const [form, setForm] = useState({ amount: '', mode: 'Bank Transfer', reference: '', note: '', reason: '', proofFile: '' });
+  const [requestsList, setRequestsList] = useState([]);
+  const [stats, setStats] = useState({ totalDeposits: 0, totalWithdrawals: 0, pendingRequests: 0 });
+  const [loading, setLoading] = useState(true);
 
   const formatAmount = (num) => `₹${Number(num).toLocaleString('en-IN')}`;
 
-  const handleSubmit = (e) => {
+  const fetchTransactions = async () => {
+    try {
+      setLoading(true);
+      const res = await apiRequest('/api/client/transactions');
+      const data = res.data || res;
+      let list = [];
+      if (Array.isArray(data)) {
+        list = data;
+      } else if (data.transactions && Array.isArray(data.transactions)) {
+        list = data.transactions;
+      } else if (data.history && Array.isArray(data.history)) {
+        list = data.history;
+      }
+
+      const mapped = list.map((req, idx) => ({
+        id: req.id || req._id || idx,
+        type: req.type ? (req.type.charAt(0).toUpperCase() + req.type.slice(1)) : 'Deposit',
+        amount: Number(req.amount || 0),
+        date: req.date || req.createdAt || new Date().toISOString().split('T')[0],
+        status: req.status ? (req.status.charAt(0).toUpperCase() + req.status.slice(1)) : 'Pending',
+        mode: req.paymentMethod || req.mode || 'Bank Transfer',
+        note: req.remarks || req.note || '',
+        reference: req.referenceNumber || req.reference || '',
+        reason: req.remarks || req.reason || '',
+        proofFile: req.proofFile || req.fileUrl || ''
+      }));
+      setRequestsList(mapped);
+
+      const totalDep = data.totalDeposits !== undefined ? data.totalDeposits : mapped.filter(r => r.type === 'Deposit').reduce((s, r) => s + r.amount, 0);
+      const totalWith = data.totalWithdrawals !== undefined ? data.totalWithdrawals : mapped.filter(r => r.type === 'Withdrawal').reduce((s, r) => s + r.amount, 0);
+      const pendCount = data.pendingRequests !== undefined ? data.pendingRequests : mapped.filter(r => r.status === 'Pending').length;
+
+      setStats({
+        totalDeposits: totalDep,
+        totalWithdrawals: totalWith,
+        pendingRequests: pendCount
+      });
+    } catch (err) {
+      console.error('Failed to load transaction list:', err);
+      // Fallback
+      const clientDataKey = `kfpl_client_data_${mockClient.clientId}`;
+      const stored = localStorage.getItem(clientDataKey);
+      if (stored) {
+        const parsed = JSON.parse(stored);
+        if (parsed.paymentRequests) {
+          setRequestsList(parsed.paymentRequests);
+          const td = parsed.paymentRequests.filter(r => r.type === 'Deposit').reduce((s, r) => s + r.amount, 0);
+          const tw = parsed.paymentRequests.filter(r => r.type === 'Withdrawal').reduce((s, r) => s + r.amount, 0);
+          const pc = parsed.paymentRequests.filter(r => r.status === 'Pending').length;
+          setStats({ totalDeposits: td, totalWithdrawals: tw, pendingRequests: pc });
+          return;
+        }
+      }
+      setRequestsList(mockPaymentRequests);
+      const td = mockPaymentRequests.filter(r => r.type === 'Deposit').reduce((s, r) => s + r.amount, 0);
+      const tw = mockPaymentRequests.filter(r => r.type === 'Withdrawal').reduce((s, r) => s + r.amount, 0);
+      const pc = mockPaymentRequests.filter(r => r.status === 'Pending').length;
+      setStats({ totalDeposits: td, totalWithdrawals: tw, pendingRequests: pc });
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    fetchTransactions();
+  }, []);
+
+  const handleSubmit = async (e) => {
     e.preventDefault();
     if (!form.amount) return;
 
@@ -38,90 +109,45 @@ export default function PaymentRequests() {
     }
 
     try {
-      const storedApprovals = localStorage.getItem('kfpl_approvals');
-      let approvalsObj = { deposits: [], withdrawals: [] };
-      if (storedApprovals) {
-        approvalsObj = JSON.parse(storedApprovals);
-      }
-      
-      const newId = Date.now();
-      const today = new Date().toISOString().split('T')[0];
-
       if (activeTab === 'deposit') {
-        const newDeposit = {
-          id: newId,
-          type: 'deposit',
-          investorName: mockClient.name,
-          clientId: mockClient.clientId,
-          amount: Number(form.amount),
-          date: today,
-          status: 'pending',
-          note: form.note || '',
-          mode: form.mode,
-          referenceId: form.reference || `TXN${newId}`,
-          proofFile: form.proofFile || '',
-        };
-        approvalsObj.deposits = [newDeposit, ...(approvalsObj.deposits || [])];
+        const formData = new FormData();
+        formData.append('type', 'deposit');
+        formData.append('amount', form.amount);
+        formData.append('paymentMethod', form.mode);
+        formData.append('referenceNumber', form.reference || `TXN${Date.now()}`);
+        formData.append('remarks', form.note || '');
+        if (form.proofFile && form.proofFile.raw) {
+          formData.append('file', form.proofFile.raw);
+        }
+        await apiRequest('/api/client/transactions', {
+          method: 'POST',
+          body: formData
+        });
       } else {
-        const newWithdrawal = {
-          id: newId,
+        const payload = {
           type: 'withdrawal',
-          investorName: mockClient.name,
-          clientId: mockClient.clientId,
           amount: Number(form.amount),
-          date: today,
-          status: 'pending',
-          note: form.note || '',
-          reason: form.reason || '',
-          bankName: mockClient.bankName || 'HDFC Bank',
-          accountNo: mockClient.accountNo || 'XXXX4567',
-          ifsc: mockClient.ifsc || 'HDFC0001234',
+          paymentMethod: form.mode,
+          remarks: form.reason || form.note || ''
         };
-        approvalsObj.withdrawals = [newWithdrawal, ...(approvalsObj.withdrawals || [])];
-      }
-
-      localStorage.setItem('kfpl_approvals', JSON.stringify(approvalsObj));
-
-      // Update client local data key for instantaneous display
-      const clientDataKey = `kfpl_client_data_${mockClient.clientId}`;
-      const storedClientData = localStorage.getItem(clientDataKey);
-      if (storedClientData) {
-        const clientData = JSON.parse(storedClientData);
-        if (!clientData.paymentRequests) clientData.paymentRequests = [];
-        
-        const newClientReq = {
-          id: newId,
-          type: activeTab === 'deposit' ? 'Deposit' : 'Withdrawal',
-          amount: Number(form.amount),
-          date: today,
-          status: 'Pending',
-          mode: form.mode,
-          note: form.note || '',
-          reference: form.reference || '',
-          reason: form.reason || '',
-          proofFile: form.proofFile || '',
-        };
-        clientData.paymentRequests = [newClientReq, ...clientData.paymentRequests];
-        localStorage.setItem(clientDataKey, JSON.stringify(clientData));
+        await apiRequest('/api/client/transactions', {
+          method: 'POST',
+          body: payload
+        });
       }
 
       addToast('success', 'Request Submitted', `${activeTab === 'deposit' ? 'Deposit' : 'Withdrawal'} request submitted successfully!`);
-      
       setForm({ amount: '', mode: 'Bank Transfer', reference: '', note: '', reason: '', proofFile: '' });
-      
-      setTimeout(() => {
-        window.location.reload();
-      }, 1000);
-
+      fetchTransactions();
     } catch (err) {
       console.error('Error submitting payment request:', err);
-      addToast('error', 'Submission Failed', 'Failed to submit request.');
+      addToast('error', 'Submission Failed', err.message || 'Failed to submit request.');
     }
   };
 
-  const totalDeposits = mockPaymentRequests.filter(r => r.type === 'Deposit').reduce((s, r) => s + r.amount, 0);
-  const totalWithdrawals = mockPaymentRequests.filter(r => r.type === 'Withdrawal').reduce((s, r) => s + r.amount, 0);
-  const pendingCount = mockPaymentRequests.filter(r => r.status === 'Pending').length;
+  const totalDeposits = stats.totalDeposits;
+  const totalWithdrawals = stats.totalWithdrawals;
+  const pendingCount = stats.pendingRequests;
 
   return (
     <div className="kfpl-page">
@@ -279,7 +305,8 @@ export default function PaymentRequests() {
                                     name: file.name,
                                     type: file.type,
                                     size: sizeStr,
-                                    data: event.target.result
+                                    data: event.target.result,
+                                    raw: file
                                   }
                                 }));
                               };
@@ -333,8 +360,8 @@ export default function PaymentRequests() {
           <h3 className="kfpl-pay-history-title">Request History</h3>
         </div>
         <div className="kfpl-pay-history-list">
-          {mockPaymentRequests.map((req, i) => (
-            <div key={req.id} className="kfpl-pay-history-item" style={{ animationDelay: `${i * 0.06}s` }}>
+          {requestsList.map((req, i) => (
+            <div key={req.id || i} className="kfpl-pay-history-item" style={{ animationDelay: `${i * 0.06}s` }}>
               <div className={`kfpl-pay-history-type ${req.type === 'Deposit' ? 'kfpl-pay-history-type--deposit' : 'kfpl-pay-history-type--withdraw'}`}>
                 {req.type === 'Deposit' ? (
                   <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round"><path d="M12 19V5"/><path d="M5 12l7-7 7 7"/></svg>

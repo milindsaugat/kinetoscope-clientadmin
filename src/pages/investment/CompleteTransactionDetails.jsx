@@ -10,39 +10,43 @@ import {
   formatCurrency
 } from '../../data/mockData';
 import { useToast } from '../../components/ui/Toast';
+import { apiRequest } from '../../config/apiHelper';
 
 export default function CompleteTransactionDetails() {
   const addToast = useToast();
   const [filter, setFilter] = useState('all');
   const [searchQuery, setSearchQuery] = useState('');
   const [records, setRecords] = useState([]);
+  const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    // Try reading from localStorage (same key super-admin writes)
-    const localROI = localStorage.getItem('kfpl_client_roi');
-    if (localROI) {
-      const parsed = JSON.parse(localROI);
-      // Filter to current mock client
-      const clientRecords = parsed.filter(
-        r => r.clientId === mockClient.clientId || r.investorName === mockClient.name
-      );
-      setRecords(clientRecords);
-    } else {
-      // Fallback to mockROIHistory
-      const fallback = mockROIHistory.map((roi, idx) => ({
-        id: idx + 1,
-        investorName: mockClient.name,
-        clientId: mockClient.clientId,
-        month: roi.month,
-        amount: roi.received > 0 ? roi.received : roi.expected,
-        status: roi.status.toLowerCase(),
-        paidAt: roi.status === 'Paid' ? '2025-04-15' : null,
-        paymentMode: roi.status === 'Paid' ? 'Bank Transfer' : null,
-        transactionRef: roi.status === 'Paid' ? `TXN-ROI-${idx + 1}` : null,
-        roiPercentage: 12,
-      }));
-      setRecords(fallback);
-    }
+    const fetchPayouts = async () => {
+      try {
+        setLoading(true);
+        const res = await apiRequest('/api/client/payouts');
+        const list = Array.isArray(res) ? res : (res.payouts || res.data || []);
+        const mapped = list.map((r, idx) => ({
+          id: r.id || r._id || (idx + 1),
+          investorName: r.investorName || mockClient.name,
+          clientId: r.clientId || mockClient.clientId,
+          month: r.month || r.period || '—',
+          amount: Number(r.amount || r.received || 0),
+          status: (r.status || 'pending').toLowerCase(),
+          paidAt: r.paidAt || r.date || null,
+          paymentMode: r.paymentMode || null,
+          transactionRef: r.transactionRef || r.transactionRefId || r.reference || null,
+          roiPercentage: r.roiPercentage || 12,
+        }));
+        setRecords(mapped);
+      } catch (err) {
+        console.error('Failed to fetch payouts:', err);
+        addToast('error', 'Fetch Failed', 'Could not load complete transaction details from the backend.');
+        setRecords([]);
+      } finally {
+        setLoading(false);
+      }
+    };
+    fetchPayouts();
   }, []);
 
   const handleExportCSV = () => {

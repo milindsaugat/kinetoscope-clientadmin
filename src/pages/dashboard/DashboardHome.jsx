@@ -82,6 +82,8 @@ export default function DashboardHome() {
   const [statusHistory, setStatusHistory] = useState([]);
   const [clientHistoryLogs, setClientHistoryLogs] = useState([]);
   const [expandedClientCards, setExpandedClientCards] = useState({});
+  const [expandedMediaCards, setExpandedMediaCards] = useState({});
+  const [previewMedia, setPreviewMedia] = useState(null);
   const [currentSlideIndex, setCurrentSlideIndex] = useState(0);
   const [selectedUpdate, setSelectedUpdate] = useState(null);
   const [showHistoryModal, setShowHistoryModal] = useState(false);
@@ -427,7 +429,7 @@ export default function DashboardHome() {
                       >
                         {/* ── IMAGE SECTION WITH ROUNDED EDGES ── */}
                         {imageSrc ? (
-                          <div style={{ margin: '14px 14px 0', borderRadius: '12px', height: '160px', overflow: 'hidden', position: 'relative' }}>
+                          <div style={{ margin: '14px 14px 0', borderRadius: '12px', height: '230px', overflow: 'hidden', position: 'relative' }}>
                             <img
                               src={imageSrc}
                               alt={update.project}
@@ -452,7 +454,7 @@ export default function DashboardHome() {
                           <div style={{
                             margin: '14px 14px 0',
                             borderRadius: '12px',
-                            height: '140px',
+                            height: '190px',
                             background: `linear-gradient(135deg, ${accent}0d 0%, ${accent}03 100%)`,
                             display: 'flex',
                             alignItems: 'center',
@@ -507,95 +509,191 @@ export default function DashboardHome() {
                               <span style={{ fontSize: '0.7rem', fontWeight: 700, color: '#475569' }}>Milestone Progress</span>
                               <span style={{ fontSize: '0.72rem', fontWeight: 800, color: accent }}>{update.progress}%</span>
                             </div>
-                            <div style={{ height: '5px', background: '#e2e8f0', borderRadius: '3.5px', overflow: 'hidden' }}>
-                              <div style={{ width: `${update.progress}%`, height: '100%', background: accent, borderRadius: '3.5px', transition: 'width 0.4s ease' }} />
-                            </div>
-                          </div>
+                             <div style={{ height: '5px', background: '#e2e8f0', borderRadius: '3.5px', overflow: 'hidden' }}>
+                               <div style={{ width: `${update.progress}%`, height: '100%', background: accent, borderRadius: '3.5px', transition: 'width 0.4s ease' }} />
+                             </div>
+                           </div>
 
-                          {/* Updates Accordion Section */}
-                          <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
-                            <span style={{ fontSize: '0.65rem', fontWeight: 700, color: '#94a3b8', textTransform: 'uppercase', letterSpacing: '0.06em' }}>
-                              Timeline Logs & Updates
-                            </span>
-                            
-                            {/* First 2 updates */}
-                            <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
-                              {firstTwo.map((up, idx) => (
-                                <div key={up.id || idx} style={{ display: 'flex', gap: '8px', alignItems: 'flex-start' }}>
-                                  <div style={{ width: '5px', height: '5px', borderRadius: '50%', background: accent, marginTop: '6px', flexShrink: 0 }} />
-                                  <div style={{ flex: 1, minWidth: 0 }}>
-                                    <div style={{ display: 'flex', alignItems: 'center', gap: '6px', flexWrap: 'wrap' }}>
-                                      <span style={{ fontSize: '0.68rem', color: '#94a3b8', fontWeight: 600 }}>{up.date}</span>
-                                      {up.status && <span style={{ fontSize: '0.58rem', color: accent, background: `${accent}10`, padding: '1px 4px', borderRadius: '3px', fontWeight: 700 }}>{up.status}</span>}
-                                    </div>
-                                    <p style={{ fontSize: '0.8rem', color: '#334155', lineHeight: 1.5, margin: '2px 0 0' }}>
-                                      {up.note}
-                                    </p>
-                                  </div>
-                                </div>
-                              ))}
-                            </div>
+                           {/* ── HIGHLIGHTED TIMELINE LOGS & UPDATES CONTAINER ── */}
+                           <div style={{
+                             display: 'flex',
+                             flexDirection: 'column',
+                             gap: '8px',
+                             background: '#f8fafc',
+                             border: '1px solid #e2e8f0',
+                             padding: '14px',
+                             borderRadius: '12px',
+                             boxShadow: 'inset 0 1px 2px rgba(0,0,0,0.01)'
+                           }}>
+                             <span style={{ fontSize: '0.68rem', fontWeight: 800, color: '#64748b', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: '2px' }}>
+                               Timeline Logs & Updates
+                             </span>
+                             
+                             {/* First 2 updates */}
+                             <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                               {firstTwo.map((up, idx) => (
+                                 <div key={up.id || idx} style={{ display: 'flex', gap: '8px', alignItems: 'flex-start' }}>
+                                   <div style={{ width: '5px', height: '5px', borderRadius: '50%', background: accent, marginTop: '6px', flexShrink: 0 }} />
+                                   <div style={{ flex: 1, minWidth: 0 }}>
+                                     <div style={{ display: 'flex', alignItems: 'center', gap: '6px', flexWrap: 'wrap' }}>
+                                       <span style={{ fontSize: '0.68rem', color: '#94a3b8', fontWeight: 600 }}>{up.date}</span>
+                                       {up.status && <span style={{ fontSize: '0.58rem', color: accent, background: `${accent}10`, padding: '1px 4px', borderRadius: '3px', fontWeight: 700 }}>{up.status}</span>}
+                                     </div>
+                                     <p style={{ fontSize: '0.8rem', color: '#334155', lineHeight: 1.5, margin: '2px 0 0' }}>
+                                       {up.note}
+                                     </p>
+                                   </div>
+                                 </div>
+                               ))}
+                             </div>
 
-                            {/* Accordion panel for remaining updates */}
-                            {remaining.length > 0 && (
-                              <div>
-                                <div
-                                  style={{
-                                    maxHeight: isExpanded ? '1000px' : '0px',
-                                    overflow: 'hidden',
-                                    transition: 'max-height 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
-                                    display: 'flex',
-                                    flexDirection: 'column',
-                                    gap: '8px',
-                                    marginTop: isExpanded ? '8px' : '0'
-                                  }}
-                                >
-                                  {remaining.map((up, idx) => (
-                                    <div key={up.id || idx} style={{ display: 'flex', gap: '8px', alignItems: 'flex-start' }}>
-                                      <div style={{ width: '5px', height: '5px', borderRadius: '50%', background: '#cbd5e1', marginTop: '6px', flexShrink: 0 }} />
-                                      <div style={{ flex: 1, minWidth: 0 }}>
-                                        <div style={{ display: 'flex', alignItems: 'center', gap: '6px', flexWrap: 'wrap' }}>
-                                          <span style={{ fontSize: '0.68rem', color: '#94a3b8', fontWeight: 600 }}>{up.date}</span>
-                                          {up.status && <span style={{ fontSize: '0.58rem', color: '#64748b', background: '#f1f5f9', padding: '1px 4px', borderRadius: '3px', fontWeight: 700 }}>{up.status}</span>}
-                                        </div>
-                                        <p style={{ fontSize: '0.8rem', color: '#475569', lineHeight: 1.5, margin: '2px 0 0' }}>
-                                          {up.note}
-                                        </p>
-                                      </div>
-                                    </div>
-                                  ))}
-                                </div>
+                             {/* Accordion panel for remaining updates */}
+                             {remaining.length > 0 && (
+                               <div>
+                                 <div
+                                   style={{
+                                     maxHeight: isExpanded ? '1000px' : '0px',
+                                     overflow: 'hidden',
+                                     transition: 'max-height 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
+                                     display: 'flex',
+                                     flexDirection: 'column',
+                                     gap: '8px',
+                                     marginTop: isExpanded ? '8px' : '0'
+                                   }}
+                                 >
+                                   {remaining.map((up, idx) => (
+                                     <div key={up.id || idx} style={{ display: 'flex', gap: '8px', alignItems: 'flex-start' }}>
+                                       <div style={{ width: '5px', height: '5px', borderRadius: '50%', background: '#cbd5e1', marginTop: '6px', flexShrink: 0 }} />
+                                       <div style={{ flex: 1, minWidth: 0 }}>
+                                         <div style={{ display: 'flex', alignItems: 'center', gap: '6px', flexWrap: 'wrap' }}>
+                                           <span style={{ fontSize: '0.68rem', color: '#94a3b8', fontWeight: 600 }}>{up.date}</span>
+                                           {up.status && <span style={{ fontSize: '0.58rem', color: '#64748b', background: '#f1f5f9', padding: '1px 4px', borderRadius: '3px', fontWeight: 700 }}>{up.status}</span>}
+                                         </div>
+                                         <p style={{ fontSize: '0.8rem', color: '#475569', lineHeight: 1.5, margin: '2px 0 0' }}>
+                                           {up.note}
+                                         </p>
+                                       </div>
+                                     </div>
+                                   ))}
+                                 </div>
 
-                                {/* Accordion Toggle Trigger Button */}
-                                <button
-                                  onClick={() => setExpandedClientCards(prev => ({ ...prev, [update.id]: !isExpanded }))}
-                                  style={{
-                                    background: 'none', border: 'none', color: accent, fontSize: '0.72rem',
-                                    fontWeight: 700, cursor: 'pointer', padding: '4px 0 0', display: 'flex',
-                                    alignItems: 'center', gap: '3px', outline: 'none'
-                                  }}
-                                >
-                                  {isExpanded ? 'Show Less' : `View More Updates (+${remaining.length})`}
-                                  <svg
-                                    viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"
-                                    style={{ width: 10, height: 10, transform: isExpanded ? 'rotate(180deg)' : 'none', transition: 'transform 0.2s' }}
-                                  >
-                                    <polyline points="6 9 12 15 18 9" />
-                                  </svg>
-                                </button>
-                              </div>
-                            )}
-                          </div>
+                                 {/* Accordion Toggle Trigger Button */}
+                                 <button
+                                   onClick={() => setExpandedClientCards(prev => ({ ...prev, [update.id]: !isExpanded }))}
+                                   style={{
+                                     background: 'none', border: 'none', color: accent, fontSize: '0.72rem',
+                                     fontWeight: 700, cursor: 'pointer', padding: '4px 0 0', display: 'flex',
+                                     alignItems: 'center', gap: '3px', outline: 'none'
+                                   }}
+                                 >
+                                   {isExpanded ? 'Show Less' : `View More Updates (+${remaining.length})`}
+                                   <svg
+                                     viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"
+                                     style={{ width: 10, height: 10, transform: isExpanded ? 'rotate(180deg)' : 'none', transition: 'transform 0.2s' }}
+                                   >
+                                     <polyline points="6 9 12 15 18 9" />
+                                   </svg>
+                                 </button>
+                               </div>
+                             )}
+                           </div>
 
-                          {/* Media attachments */}
-                          {(update.media || []).length > 0 && (
-                            <div style={{ display: 'flex', alignItems: 'center', gap: '5px', marginTop: '4px', paddingTop: '10px', borderTop: '1px solid #f1f5f9' }}>
-                              <svg viewBox="0 0 24 24" fill="none" stroke={accent} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ width: 12, height: 12 }}>
-                                <path d="M21.44 11.05l-9.19 9.19a6 6 0 0 1-8.49-8.49l9.19-9.19a4 4 0 0 1 5.66 5.66l-9.2 9.19a2 2 0 0 1-2.83-2.83l8.49-8.48" />
-                              </svg>
-                              <span style={{ fontSize: '0.72rem', color: accent, fontWeight: 600 }}>{update.media.length} attachment(s)</span>
-                            </div>
-                          )}
+                           {/* ── HIGHLIGHTED FILES & ATTACHMENTS GRID & ACCORDION ── */}
+                           {(update.media || []).length > 0 && (() => {
+                             const mediaList = update.media || [];
+                             const firstEight = mediaList.slice(0, 8);
+                             const remainingMedia = mediaList.slice(8);
+                             const isMediaExpanded = !!expandedMediaCards[update.id];
+
+                             return (
+                               <div style={{
+                                 marginTop: '12px',
+                                 padding: '14px',
+                                 borderRadius: '12px',
+                                 background: '#f8fafc',
+                                 border: '1px solid #e2e8f0',
+                                 display: 'flex',
+                                 flexDirection: 'column',
+                                 gap: '10px',
+                                 boxShadow: 'inset 0 1px 2px rgba(0,0,0,0.01)'
+                               }}>
+                                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                                   <span style={{ fontSize: '0.68rem', fontWeight: 800, color: '#64748b', textTransform: 'uppercase', letterSpacing: '0.06em' }}>
+                                     Files & Attachments
+                                   </span>
+                                   <span style={{ fontSize: '0.68rem', color: '#94a3b8', fontWeight: 700 }}>
+                                     {mediaList.length} File(s)
+                                   </span>
+                                 </div>
+
+                                 {/* Main 4x2 Grid (up to 8 items) */}
+                                 <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '8px' }}>
+                                   {firstEight.map(m => (
+                                     <div key={m.id} style={{
+                                       position: 'relative', width: '100%', aspectRatio: '1/1', borderRadius: '10px',
+                                       overflow: 'hidden', cursor: 'pointer', background: '#ffffff',
+                                       border: '1px solid #e2e8f0',
+                                       display: 'flex', alignItems: 'center', justifyContent: 'center',
+                                       boxShadow: '0 2px 8px rgba(0,0,0,0.04)'
+                                     }} onClick={() => setPreviewMedia(m)}>
+                                       {m.type?.startsWith('image/') || m.dataUrl?.match(/\.(jpeg|jpg|gif|png|webp)$/i) ? (
+                                         <img src={m.dataUrl} alt={m.name} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                                       ) : (
+                                         <span style={{ fontSize: '0.75rem', fontWeight: 800, color: '#94a3b8' }}>{m.name?.split('.').pop()?.toUpperCase() || 'FILE'}</span>
+                                       )}
+                                     </div>
+                                   ))}
+                                 </div>
+
+                                 {/* Accordion list for elements past the 4x2 grid (> 8 items) */}
+                                 {remainingMedia.length > 0 && (
+                                   <div>
+                                     <div style={{
+                                       maxHeight: isMediaExpanded ? '2000px' : '0px',
+                                       overflow: 'hidden',
+                                       transition: 'max-height 0.3s ease-in-out',
+                                       marginTop: isMediaExpanded ? '8px' : '0'
+                                     }}>
+                                       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '8px' }}>
+                                         {remainingMedia.map(m => (
+                                           <div key={m.id} style={{
+                                             position: 'relative', width: '100%', aspectRatio: '1/1', borderRadius: '10px',
+                                             overflow: 'hidden', cursor: 'pointer', background: '#ffffff',
+                                             border: '1px solid #e2e8f0',
+                                             display: 'flex', alignItems: 'center', justifyContent: 'center',
+                                             boxShadow: '0 2px 8px rgba(0,0,0,0.04)'
+                                           }} onClick={() => setPreviewMedia(m)}>
+                                             {m.type?.startsWith('image/') || m.dataUrl?.match(/\.(jpeg|jpg|gif|png|webp)$/i) ? (
+                                               <img src={m.dataUrl} alt={m.name} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                                             ) : (
+                                               <span style={{ fontSize: '0.75rem', fontWeight: 800, color: '#94a3b8' }}>{m.name?.split('.').pop()?.toUpperCase() || 'FILE'}</span>
+                                             )}
+                                           </div>
+                                         ))}
+                                       </div>
+                                     </div>
+
+                                     <button
+                                       onClick={() => setExpandedMediaCards(prev => ({ ...prev, [update.id]: !isMediaExpanded }))}
+                                       style={{
+                                         background: 'none', border: 'none', color: accent, fontSize: '0.72rem',
+                                         fontWeight: 700, cursor: 'pointer', padding: '8px 0 0', display: 'flex',
+                                         alignItems: 'center', gap: '3px', outline: 'none'
+                                       }}
+                                     >
+                                       {isMediaExpanded ? 'Show Less Files' : `View More Files (+${remainingMedia.length})`}
+                                       <svg
+                                         viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"
+                                         style={{ width: 10, height: 10, transform: isMediaExpanded ? 'rotate(180deg)' : 'none', transition: 'transform 0.2s' }}
+                                       >
+                                         <polyline points="6 9 12 15 18 9" />
+                                       </svg>
+                                     </button>
+                                   </div>
+                                 )}
+                               </div>
+                             );
+                          })()}
 
                           {/* Premium Segmented Action Buttons Row */}
                           <div style={{ display: 'flex', gap: '8px', marginTop: '8px', paddingTop: '12px', borderTop: '1px solid #f1f5f9', justifyContent: 'flex-end' }}>
@@ -987,6 +1085,57 @@ export default function DashboardHome() {
             </div>
           </div>
         </div>
+
+        {/* ═══════ Media Preview Modal ═══════ */}
+        <Modal
+          isOpen={!!previewMedia}
+          onClose={() => setPreviewMedia(null)}
+          title={previewMedia?.name || 'File Preview'}
+          size={previewMedia?.type?.startsWith('image/') || previewMedia?.dataUrl?.match(/\.(jpeg|jpg|gif|png|webp)$/i) ? 'lg' : 'md'}
+          footer={
+            <>
+              <button className="kfpl-btn kfpl-btn--ghost" onClick={() => setPreviewMedia(null)}>Close</button>
+              {previewMedia?.dataUrl && (
+                <a
+                  href={previewMedia.dataUrl}
+                  download={previewMedia.name}
+                  className="kfpl-btn kfpl-btn--primary"
+                  style={{ textDecoration: 'none', display: 'inline-flex', alignItems: 'center' }}
+                >
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" style={{ width: 16, height: 16 }}>
+                    <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/>
+                  </svg>
+                  Download File
+                </a>
+              )}
+            </>
+          }
+        >
+          {previewMedia && (
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '12px', alignItems: 'center', justifyContent: 'center', width: '100%' }}>
+              {previewMedia.type?.startsWith('image/') || previewMedia.dataUrl?.match(/\.(jpeg|jpg|gif|png|webp)$/i) ? (
+                <img
+                  src={previewMedia.dataUrl}
+                  alt={previewMedia.name}
+                  style={{ maxWidth: '100%', maxHeight: '70vh', objectFit: 'contain', borderRadius: '8px', boxShadow: '0 4px 20px rgba(0,0,0,0.15)' }}
+                />
+              ) : (
+                <div style={{ display: 'flex', gap: '16px', alignItems: 'center', padding: '24px', background: '#f8fafc', border: '1px solid #e2e8f0', borderRadius: '12px', width: '100%' }}>
+                  <svg viewBox="0 0 24 24" fill="none" stroke="#64748b" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" style={{ width: 48, height: 48 }}>
+                    <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
+                    <polyline points="14 2 14 8 20 8"/>
+                  </svg>
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
+                    <span style={{ fontSize: '1rem', fontWeight: 700, color: '#334155' }}>{previewMedia.name}</span>
+                    <span style={{ fontSize: '0.8rem', color: '#64748b' }}>
+                      File Type: {previewMedia.type || 'Unknown'} • Size: {previewMedia.size ? `${(previewMedia.size / 1024).toFixed(1)} KB` : 'N/A'}
+                    </span>
+                  </div>
+                </div>
+              )}
+            </div>
+          )}
+        </Modal>
 
         {/* ═══════ Selected Update Detail Modal ═══════ */}
         <Modal
