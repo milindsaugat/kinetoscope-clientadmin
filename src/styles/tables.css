@@ -1,0 +1,107 @@
+/* ============================================================
+   KFPL Client Portal — Table Styles
+   Description: Data tables, responsive tables
+   ============================================================ */
+
+.kfpl-table-wrapper {
+  background: var(--color-white);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-card);
+  border: 1px solid var(--color-border-light);
+  overflow: hidden;
+}
+
+.kfpl-table-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 18px 24px;
+  border-bottom: 1px solid var(--color-border-light);
+  flex-wrap: wrap;
+  gap: 12px;
+}
+
+.kfpl-table-title {
+  font-size: 1rem;
+  font-weight: 700;
+  color: var(--color-text-primary);
+}
+
+.kfpl-table-container {
+  overflow-x: auto;
+  -ms-overflow-style: none;  /* IE and Edge */
+  scrollbar-width: none;  /* Firefox */
+}
+
+.kfpl-table-container::-webkit-scrollbar {
+  display: none; /* Chrome, Safari and Opera */
+}
+
+.kfpl-table {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+.kfpl-table thead th {
+  padding: 12px 18px;
+  text-align: left;
+  font-size: 0.6875rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 1px;
+  color: var(--color-text-muted);
+  background: var(--color-surface);
+  border-bottom: 1px solid var(--color-border-light);
+  white-space: nowrap;
+}
+
+.kfpl-table tbody td {
+  padding: 14px 18px;
+  font-size: 0.8125rem;
+  color: var(--color-text-secondary);
+  border-bottom: 1px solid var(--color-border-light);
+  vertical-align: middle;
+  white-space: nowrap;
+}
+
+.kfpl-table tbody tr:last-child td {
+  border-bottom: none;
+}
+
+.kfpl-table tbody tr {
+  transition: var(--transition-fast);
+}
+
+.kfpl-table tbody tr:hover {
+  background: rgba(16, 185, 129, 0.03);
+}
+
+.kfpl-table-cell-primary {
+  font-weight: 600;
+  color: var(--color-text-primary);
+}
+
+.kfpl-table-cell-mono {
+  font-family: var(--font-mono);
+  font-size: 0.8125rem;
+  color: var(--color-text-primary);
+  font-weight: 500;
+}
+
+.kfpl-table-cell-actions {
+  display: flex;
+  gap: 6px;
+  align-items: center;
+}
+
+.kfpl-table-footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 14px 24px;
+  border-top: 1px solid var(--color-border-light);
+  font-size: 0.8125rem;
+  color: var(--color-text-muted);
+}
+
+/* ============ END: tables.css ============ */

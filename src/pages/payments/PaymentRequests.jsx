@@ -1,0 +1,366 @@
+/* ============================================================
+   Page: PaymentRequests.jsx
+   Description: Deposit/Withdrawal request forms and history
+   ============================================================ */
+
+import { useState } from 'react';
+import { mockPaymentRequests, mockClient } from '../../data/mockData';
+import { useToast } from '../../components/ui/Toast';
+
+/* ── SVG Icons ─────────────────────── */
+const DepositIcon = () => (
+  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M12 2v20"/><path d="M17 7l-5-5-5 5"/><rect x="3" y="14" width="18" height="8" rx="2"/></svg>
+);
+const WithdrawIcon = () => (
+  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M12 22V2"/><path d="M7 17l5 5 5-5"/><rect x="3" y="2" width="18" height="8" rx="2"/></svg>
+);
+const SendIcon = () => (
+  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M22 2L11 13"/><path d="M22 2l-7 20-4-9-9-4 20-7z"/></svg>
+);
+const CreditCardIcon = () => (
+  <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><rect x="1" y="4" width="22" height="16" rx="2"/><line x1="1" y1="10" x2="23" y2="10"/></svg>
+);
+
+export default function PaymentRequests() {
+  const { addToast } = useToast();
+  const [activeTab, setActiveTab] = useState('deposit');
+  const [form, setForm] = useState({ amount: '', mode: 'Bank Transfer', reference: '', note: '', reason: '', proofFile: '' });
+
+  const formatAmount = (num) => `₹${Number(num).toLocaleString('en-IN')}`;
+
+  const handleSubmit = (e) => {
+    e.preventDefault();
+    if (!form.amount) return;
+
+    if (activeTab === 'deposit' && !form.proofFile) {
+      addToast('error', 'Proof Required', 'Please upload a proof of deposit receipt!');
+      return;
+    }
+
+    try {
+      const storedApprovals = localStorage.getItem('kfpl_approvals');
+      let approvalsObj = { deposits: [], withdrawals: [] };
+      if (storedApprovals) {
+        approvalsObj = JSON.parse(storedApprovals);
+      }
+      
+      const newId = Date.now();
+      const today = new Date().toISOString().split('T')[0];
+
+      if (activeTab === 'deposit') {
+        const newDeposit = {
+          id: newId,
+          type: 'deposit',
+          investorName: mockClient.name,
+          clientId: mockClient.clientId,
+          amount: Number(form.amount),
+          date: today,
+          status: 'pending',
+          note: form.note || '',
+          mode: form.mode,
+          referenceId: form.reference || `TXN${newId}`,
+          proofFile: form.proofFile || '',
+        };
+        approvalsObj.deposits = [newDeposit, ...(approvalsObj.deposits || [])];
+      } else {
+        const newWithdrawal = {
+          id: newId,
+          type: 'withdrawal',
+          investorName: mockClient.name,
+          clientId: mockClient.clientId,
+          amount: Number(form.amount),
+          date: today,
+          status: 'pending',
+          note: form.note || '',
+          reason: form.reason || '',
+          bankName: mockClient.bankName || 'HDFC Bank',
+          accountNo: mockClient.accountNo || 'XXXX4567',
+          ifsc: mockClient.ifsc || 'HDFC0001234',
+        };
+        approvalsObj.withdrawals = [newWithdrawal, ...(approvalsObj.withdrawals || [])];
+      }
+
+      localStorage.setItem('kfpl_approvals', JSON.stringify(approvalsObj));
+
+      // Update client local data key for instantaneous display
+      const clientDataKey = `kfpl_client_data_${mockClient.clientId}`;
+      const storedClientData = localStorage.getItem(clientDataKey);
+      if (storedClientData) {
+        const clientData = JSON.parse(storedClientData);
+        if (!clientData.paymentRequests) clientData.paymentRequests = [];
+        
+        const newClientReq = {
+          id: newId,
+          type: activeTab === 'deposit' ? 'Deposit' : 'Withdrawal',
+          amount: Number(form.amount),
+          date: today,
+          status: 'Pending',
+          mode: form.mode,
+          note: form.note || '',
+          reference: form.reference || '',
+          reason: form.reason || '',
+          proofFile: form.proofFile || '',
+        };
+        clientData.paymentRequests = [newClientReq, ...clientData.paymentRequests];
+        localStorage.setItem(clientDataKey, JSON.stringify(clientData));
+      }
+
+      addToast('success', 'Request Submitted', `${activeTab === 'deposit' ? 'Deposit' : 'Withdrawal'} request submitted successfully!`);
+      
+      setForm({ amount: '', mode: 'Bank Transfer', reference: '', note: '', reason: '', proofFile: '' });
+      
+      setTimeout(() => {
+        window.location.reload();
+      }, 1000);
+
+    } catch (err) {
+      console.error('Error submitting payment request:', err);
+      addToast('error', 'Submission Failed', 'Failed to submit request.');
+    }
+  };
+
+  const totalDeposits = mockPaymentRequests.filter(r => r.type === 'Deposit').reduce((s, r) => s + r.amount, 0);
+  const totalWithdrawals = mockPaymentRequests.filter(r => r.type === 'Withdrawal').reduce((s, r) => s + r.amount, 0);
+  const pendingCount = mockPaymentRequests.filter(r => r.status === 'Pending').length;
+
+  return (
+    <div className="kfpl-page">
+      <div className="kfpl-page-header">
+        <div className="kfpl-page-header-left">
+          <h1 className="kfpl-page-title">Payments</h1>
+          <p className="kfpl-page-subtitle">Raise deposit or withdrawal requests</p>
+        </div>
+      </div>
+
+      {/* ── Summary KPIs ─────────────────────── */}
+      <div className="kfpl-pay-kpis">
+        <div className="kfpl-pay-kpi">
+          <div className="kfpl-pay-kpi-icon kfpl-pay-kpi-icon--deposit">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M12 19V5"/><path d="M5 12l7-7 7 7"/></svg>
+          </div>
+          <div>
+            <span className="kfpl-pay-kpi-label">Total Deposits</span>
+            <span className="kfpl-pay-kpi-value">{formatAmount(totalDeposits)}</span>
+          </div>
+        </div>
+        <div className="kfpl-pay-kpi">
+          <div className="kfpl-pay-kpi-icon kfpl-pay-kpi-icon--withdraw">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M12 5v14"/><path d="M19 12l-7 7-7-7"/></svg>
+          </div>
+          <div>
+            <span className="kfpl-pay-kpi-label">Total Withdrawals</span>
+            <span className="kfpl-pay-kpi-value">{formatAmount(totalWithdrawals)}</span>
+          </div>
+        </div>
+        <div className="kfpl-pay-kpi">
+          <div className="kfpl-pay-kpi-icon kfpl-pay-kpi-icon--pending">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+          </div>
+          <div>
+            <span className="kfpl-pay-kpi-label">Pending</span>
+            <span className="kfpl-pay-kpi-value">{pendingCount} request{pendingCount !== 1 ? 's' : ''}</span>
+          </div>
+        </div>
+      </div>
+
+      <div className="kfpl-pay-grid">
+        {/* ── Request Form ─────────────────────── */}
+        <div className="kfpl-pay-form-card">
+          <div className="kfpl-pay-tabs">
+            <button
+              className={`kfpl-pay-tab ${activeTab === 'deposit' ? 'kfpl-pay-tab--active' : ''}`}
+              onClick={() => setActiveTab('deposit')}
+            >
+              <DepositIcon /> Deposit
+            </button>
+            <button
+              className={`kfpl-pay-tab ${activeTab === 'withdrawal' ? 'kfpl-pay-tab--active' : ''}`}
+              onClick={() => setActiveTab('withdrawal')}
+            >
+              <WithdrawIcon /> Withdrawal
+            </button>
+          </div>
+
+          <form className="kfpl-form" onSubmit={handleSubmit}>
+            <div className="kfpl-input-group">
+              <label className="kfpl-input-label">Amount (₹) <span className="required">*</span></label>
+              <div className="kfpl-ps-modal-input-wrap">
+                <span className="kfpl-ps-modal-input-prefix">₹</span>
+                <input className="kfpl-input kfpl-ps-modal-input" type="number" placeholder="Enter amount" value={form.amount} onChange={e => setForm({ ...form, amount: e.target.value })} />
+              </div>
+            </div>
+            <div className="kfpl-input-group">
+              <label className="kfpl-input-label">Payment Mode</label>
+              <select className="kfpl-select" value={form.mode} onChange={e => setForm({ ...form, mode: e.target.value })}>
+                <option>Bank Transfer</option><option>NEFT</option><option>RTGS</option><option>UPI</option>
+              </select>
+            </div>
+            {activeTab === 'deposit' && (
+              <>
+                <div className="kfpl-input-group">
+                  <label className="kfpl-input-label">Reference Number</label>
+                  <input className="kfpl-input" placeholder="Transaction reference (optional)" value={form.reference} onChange={e => setForm({ ...form, reference: e.target.value })} />
+                </div>
+                <div className="kfpl-input-group">
+                  <label className="kfpl-input-label">Proof of Deposit (Receipt/Screenshot) <span className="required">*</span></label>
+                  <div 
+                    className="kfpl-proof-upload-box"
+                    style={{
+                      border: '2px dashed var(--color-border)',
+                      borderRadius: '8px',
+                      padding: '20px',
+                      textAlign: 'center',
+                      cursor: 'pointer',
+                      background: 'var(--color-surface)',
+                      position: 'relative',
+                      transition: 'all 0.2s ease-in-out',
+                    }}
+                    onMouseOver={(e) => e.currentTarget.style.borderColor = 'var(--color-gold)'}
+                    onMouseOut={(e) => e.currentTarget.style.borderColor = 'var(--color-border)'}
+                  >
+                    {form.proofFile ? (
+                      <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '8px' }}>
+                        {form.proofFile.type && form.proofFile.type.startsWith('image/') ? (
+                          <img 
+                            src={form.proofFile.data} 
+                            alt="Proof Preview" 
+                            style={{ maxWidth: '120px', maxHeight: '100px', borderRadius: '4px', border: '1px solid var(--color-border)', objectFit: 'contain' }} 
+                          />
+                        ) : (
+                          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', background: '#f8fafc', padding: '10px 16px', borderRadius: '8px', border: '1px solid #e2e8f0', gap: '10px' }}>
+                            <svg viewBox="0 0 24 24" width="32" height="32" fill="none" stroke={form.proofFile.name && (form.proofFile.name.endsWith('.pdf') ? '#ef4444' : '#2563eb')} strokeWidth="2">
+                              <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
+                              <polyline points="14 2 14 8 20 8"/>
+                              <line x1="16" y1="13" x2="8" y2="13"/>
+                              <line x1="16" y1="17" x2="8" y2="17"/>
+                            </svg>
+                            <div style={{ textAlign: 'left' }}>
+                              <div style={{ fontSize: '0.85rem', fontWeight: '600', color: 'var(--color-text)', maxWidth: '180px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{form.proofFile.name}</div>
+                              <div style={{ fontSize: '0.725rem', color: 'var(--color-text-muted)' }}>{form.proofFile.size}</div>
+                            </div>
+                          </div>
+                        )}
+                        <span style={{ fontSize: '0.8rem', color: 'var(--color-text-muted)', fontWeight: '500' }}>File Attached</span>
+                        <button 
+                          type="button" 
+                          className="kfpl-btn kfpl-btn--danger"
+                          style={{ padding: '4px 8px', fontSize: '0.75rem', height: 'auto', minHeight: '0' }}
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            setForm(prev => ({ ...prev, proofFile: '' }));
+                          }}
+                        >
+                          Remove Proof
+                        </button>
+                      </div>
+                    ) : (
+                      <div>
+                        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" style={{ color: 'var(--color-text-muted)', marginBottom: '8px' }}>
+                          <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4M17 8l-5-5-5 5M12 3v12"/>
+                        </svg>
+                        <div style={{ fontSize: '0.9rem', fontWeight: '500', color: 'var(--color-text)' }}>Click to upload proof receipt</div>
+                        <div style={{ fontSize: '0.75rem', color: 'var(--color-text-muted)', marginTop: '4px' }}>PNG, JPG, PDF, DOC, XLS, TXT (max 2MB)</div>
+                        <input 
+                          type="file" 
+                          accept="image/*,application/pdf,.doc,.docx,.xls,.xlsx,.txt" 
+                          style={{ position: 'absolute', top: 0, left: 0, width: '100%', height: '100%', opacity: 0, cursor: 'pointer' }} 
+                          onChange={(e) => {
+                            const file = e.target.files[0];
+                            if (file) {
+                              const reader = new FileReader();
+                              reader.onload = (event) => {
+                                let sizeStr = `${(file.size / 1024).toFixed(1)} KB`;
+                                if (file.size > 1024 * 1024) {
+                                  sizeStr = `${(file.size / (1024 * 1024)).toFixed(1)} MB`;
+                                }
+                                setForm(prev => ({
+                                  ...prev,
+                                  proofFile: {
+                                    name: file.name,
+                                    type: file.type,
+                                    size: sizeStr,
+                                    data: event.target.result
+                                  }
+                                }));
+                              };
+                              reader.readAsDataURL(file);
+                            }
+                          }}
+                        />
+                      </div>
+                    )}
+                  </div>
+                </div>
+              </>
+            )}
+            {activeTab === 'withdrawal' && (
+              <div className="kfpl-input-group">
+                <label className="kfpl-input-label">Reason <span className="required">*</span></label>
+                <input className="kfpl-input" placeholder="Reason for withdrawal" value={form.reason} onChange={e => setForm({ ...form, reason: e.target.value })} />
+              </div>
+            )}
+            <div className="kfpl-input-group">
+              <label className="kfpl-input-label">Note</label>
+              <textarea className="kfpl-textarea" placeholder="Any additional notes..." value={form.note} onChange={e => setForm({ ...form, note: e.target.value })} rows={3}></textarea>
+            </div>
+            <button type="submit" className="kfpl-pay-submit-btn" disabled={!form.amount}>
+              <SendIcon />
+              Submit {activeTab === 'deposit' ? 'Deposit' : 'Withdrawal'} Request
+            </button>
+          </form>
+        </div>
+
+        {/* ── Online Payment Coming Soon ─────────────────────── */}
+        <div className="kfpl-pay-coming-soon">
+          <div className="kfpl-pay-coming-soon-icon">
+            <CreditCardIcon />
+          </div>
+          <h3 className="kfpl-pay-coming-soon-title">Online Payment</h3>
+          <p className="kfpl-pay-coming-soon-text">PSP integration coming soon. You'll be able to make payments directly online.</p>
+          <span className="kfpl-pay-coming-soon-badge">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+            Coming Soon
+          </span>
+        </div>
+      </div>
+
+      {/* ── Request History Table ─────────────────────── */}
+      <div className="kfpl-pay-history">
+        <div className="kfpl-pay-history-header">
+          <div className="kfpl-pay-history-header-icon">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M3 3v18h18"/><path d="M18 17V9"/><path d="M13 17V5"/><path d="M8 17v-3"/></svg>
+          </div>
+          <h3 className="kfpl-pay-history-title">Request History</h3>
+        </div>
+        <div className="kfpl-pay-history-list">
+          {mockPaymentRequests.map((req, i) => (
+            <div key={req.id} className="kfpl-pay-history-item" style={{ animationDelay: `${i * 0.06}s` }}>
+              <div className={`kfpl-pay-history-type ${req.type === 'Deposit' ? 'kfpl-pay-history-type--deposit' : 'kfpl-pay-history-type--withdraw'}`}>
+                {req.type === 'Deposit' ? (
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round"><path d="M12 19V5"/><path d="M5 12l7-7 7 7"/></svg>
+                ) : (
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round"><path d="M12 5v14"/><path d="M19 12l-7 7-7-7"/></svg>
+                )}
+              </div>
+              <div className="kfpl-pay-history-info">
+                <span className="kfpl-pay-history-name">{req.type}</span>
+                <span className="kfpl-pay-history-note">{req.note} · {req.mode}</span>
+              </div>
+              <div className="kfpl-pay-history-amount">
+                <span className={req.type === 'Deposit' ? 'kfpl-pay-history-amount--positive' : 'kfpl-pay-history-amount--negative'}>
+                  {req.type === 'Deposit' ? '+' : '-'}{formatAmount(req.amount)}
+                </span>
+                <span className="kfpl-pay-history-date">
+                  {new Date(req.date).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' })}
+                </span>
+              </div>
+              <span className={`kfpl-badge kfpl-badge--${req.status.toLowerCase()}`}>{req.status}</span>
+            </div>
+          ))}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+/* ============ END: PaymentRequests.jsx ============ */

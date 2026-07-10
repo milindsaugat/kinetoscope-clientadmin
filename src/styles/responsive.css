@@ -1,0 +1,234 @@
+/* ============================================================
+   KFPL Client Portal — Responsive Styles
+   Description: Mobile-first responsive breakpoints
+   ============================================================ */
+
+/* ── Mobile (< 768px) ─────────────────────── */
+@media (max-width: 767px) {
+  .kfpl-sidebar {
+    transform: translateX(-100%);
+    width: var(--sidebar-width);
+  }
+
+  .kfpl-sidebar.mobile-open {
+    transform: translateX(0);
+  }
+
+  .kfpl-main-area,
+  .kfpl-main-area.sidebar-collapsed {
+    margin-left: 0;
+  }
+
+  .kfpl-header,
+  .kfpl-header.sidebar-collapsed {
+    left: 0;
+  }
+
+  .kfpl-header-hamburger {
+    display: flex;
+  }
+
+  .kfpl-header-profile-info {
+    display: none;
+  }
+
+  .kfpl-content {
+    padding: 16px;
+  }
+
+  .kfpl-page-title {
+    font-size: 1.25rem;
+  }
+
+  .kfpl-welcome-banner {
+    padding: 24px;
+  }
+
+  .kfpl-welcome-content,
+  .kfpl-welcome-stats,
+  .kfpl-journey-header,
+  .kfpl-journey-progress-summary {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+
+  .kfpl-welcome-stats,
+  .kfpl-stat-pill {
+    width: 100%;
+  }
+
+  .kfpl-stat-pill {
+    align-items: flex-start;
+  }
+
+  .kfpl-journey {
+    padding: 24px 18px;
+  }
+
+  /* Grids stack on mobile */
+  .kfpl-grid-2col,
+  .kfpl-grid-3col,
+  .kfpl-grid-4col {
+    grid-template-columns: 1fr;
+  }
+
+  .kfpl-form-row,
+  .kfpl-form-row-3 {
+    grid-template-columns: 1fr;
+  }
+
+  .kfpl-risk-cards {
+    grid-template-columns: 1fr;
+  }
+
+  .kfpl-profile-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .kfpl-ps-grid,
+  .kfpl-media-grid,
+  .kfpl-support-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .kfpl-donut-container {
+    flex-direction: column;
+    align-items: center;
+  }
+
+  .kfpl-donut-chart {
+    width: 160px;
+    height: 160px;
+  }
+
+  /* Journey bar scrolls horizontally */
+  .kfpl-journey-bar {
+    grid-template-columns: 1fr;
+    overflow-x: visible;
+    padding: 14px;
+    gap: 10px;
+    justify-content: stretch;
+  }
+
+  .kfpl-journey-line {
+    display: none;
+  }
+
+  .kfpl-journey-label {
+    font-size: 0.75rem;
+    max-width: 100%;
+  }
+
+  .kfpl-journey-dot {
+    width: 32px;
+    height: 32px;
+  }
+
+  .kfpl-journey-percent {
+    font-size: 2rem;
+  }
+
+  /* Tabs scroll */
+  .kfpl-tabs {
+    overflow-x: auto;
+    width: 100%;
+  }
+
+  .kfpl-payment-tabs {
+    flex-direction: column;
+  }
+
+  .kfpl-payment-tab:first-child {
+    border-radius: var(--radius-md) var(--radius-md) 0 0;
+  }
+
+  .kfpl-payment-tab:last-child {
+    border-radius: 0 0 var(--radius-md) var(--radius-md);
+  }
+
+  /* Drawer full width */
+  .kfpl-drawer {
+    width: 100vw;
+  }
+
+  /* FAB smaller */
+  .kfpl-support-fab-btn {
+    width: 48px;
+    height: 48px;
+  }
+
+  .kfpl-support-fab-btn svg {
+    width: 20px;
+    height: 20px;
+  }
+
+  .kfpl-login-card {
+    padding: 28px 24px;
+  }
+}
+
+/* ── Tablet (768px – 1023px) ─────────────────────── */
+@media (min-width: 768px) and (max-width: 1023px) {
+  .kfpl-sidebar {
+    width: var(--sidebar-collapsed-width);
+  }
+
+  .kfpl-sidebar .kfpl-sidebar-logo-text,
+  .kfpl-sidebar .kfpl-sidebar-section-title,
+  .kfpl-sidebar .kfpl-sidebar-item-label,
+  .kfpl-sidebar .kfpl-sidebar-item-badge {
+    opacity: 0;
+    width: 0;
+    overflow: hidden;
+  }
+
+  .kfpl-sidebar .kfpl-sidebar-item {
+    justify-content: center;
+    padding: 10px 0;
+  }
+
+  .kfpl-main-area {
+    margin-left: var(--sidebar-collapsed-width);
+  }
+
+  .kfpl-header {
+    left: var(--sidebar-collapsed-width);
+  }
+
+  .kfpl-content {
+    padding: 20px 24px;
+  }
+
+  .kfpl-grid-4col {
+    grid-template-columns: repeat(2, 1fr);
+  }
+
+  .kfpl-ps-grid,
+  .kfpl-media-grid {
+    grid-template-columns: repeat(2, 1fr);
+  }
+
+  .kfpl-risk-cards {
+    grid-template-columns: repeat(3, 1fr);
+  }
+}
+
+/* ── Desktop (1024px+) ─────────────────────── */
+@media (min-width: 1024px) {
+  .kfpl-header-hamburger {
+    display: none;
+  }
+}
+
+/* ── Wide Desktop (1440px+) ─────────────────────── */
+@media (min-width: 1440px) {
+  .kfpl-content {
+    padding: 32px 40px;
+  }
+
+  .kfpl-grid-4col {
+    grid-template-columns: repeat(5, 1fr);
+  }
+}
+
+/* ============ END: responsive.css ============ */
