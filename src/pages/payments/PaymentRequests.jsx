@@ -29,6 +29,7 @@ export default function PaymentRequests() {
   const [requestsList, setRequestsList] = useState([]);
   const [stats, setStats] = useState({ totalDeposits: 0, totalWithdrawals: 0, pendingRequests: 0 });
   const [loading, setLoading] = useState(true);
+  const [submitting, setSubmitting] = useState(false);
 
   const formatAmount = (num) => `₹${Number(num).toLocaleString('en-IN')}`;
 
@@ -101,7 +102,7 @@ export default function PaymentRequests() {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-    if (!form.amount) return;
+    if (!form.amount || submitting) return;
 
     if (activeTab === 'deposit' && !form.proofFile) {
       addToast('error', 'Proof Required', 'Please upload a proof of deposit receipt!');
@@ -109,6 +110,7 @@ export default function PaymentRequests() {
     }
 
     try {
+      setSubmitting(true);
       if (activeTab === 'deposit') {
         const formData = new FormData();
         formData.append('type', 'deposit');
@@ -142,6 +144,8 @@ export default function PaymentRequests() {
     } catch (err) {
       console.error('Error submitting payment request:', err);
       addToast('error', 'Submission Failed', err.message || 'Failed to submit request.');
+    } finally {
+      setSubmitting(false);
     }
   };
 
@@ -330,9 +334,9 @@ export default function PaymentRequests() {
               <label className="kfpl-input-label">Note</label>
               <textarea className="kfpl-textarea" placeholder="Any additional notes..." value={form.note} onChange={e => setForm({ ...form, note: e.target.value })} rows={3}></textarea>
             </div>
-            <button type="submit" className="kfpl-pay-submit-btn" disabled={!form.amount}>
+            <button type="submit" className="kfpl-pay-submit-btn" disabled={!form.amount || submitting}>
               <SendIcon />
-              Submit {activeTab === 'deposit' ? 'Deposit' : 'Withdrawal'} Request
+              {submitting ? 'Submitting...' : `Submit ${activeTab === 'deposit' ? 'Deposit' : 'Withdrawal'} Request`}
             </button>
           </form>
         </div>

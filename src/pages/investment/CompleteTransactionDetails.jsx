@@ -24,7 +24,7 @@ export default function CompleteTransactionDetails() {
       try {
         setLoading(true);
         const res = await apiRequest('/api/client/payouts');
-        const list = Array.isArray(res) ? res : (res.payouts || res.data || []);
+        const list = Array.isArray(res) ? res : (res.data?.payouts || res.payouts || (Array.isArray(res.data) ? res.data : []));
         const mapped = list.map((r, idx) => ({
           id: r.id || r._id || (idx + 1),
           investorName: r.investorName || mockClient.name,

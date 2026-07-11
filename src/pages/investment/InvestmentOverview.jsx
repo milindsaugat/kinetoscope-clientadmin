@@ -633,21 +633,31 @@ export default function InvestmentOverview() {
             <span className="kfpl-investment-total">{formatAmount(total)}</span>
           </div>
 
-          <div className="kfpl-donut-container">
+          <div 
+            className="kfpl-donut-container"
+            style={{ position: 'relative' }}
+            onMouseMove={(e) => {
+              const rect = e.currentTarget.getBoundingClientRect();
+              setTooltipPos({
+                x: e.clientX - rect.left,
+                y: e.clientY - rect.top
+              });
+            }}
+          >
             <div className="kfpl-donut-chart">
               <svg viewBox="0 0 100 100" role="img" aria-label="Investment segment allocation chart">
-                <circle cx="50" cy="50" r="25" fill="none" stroke="var(--color-surface-alt)" strokeWidth="50" />
+                <circle cx="50" cy="50" r="22.5" fill="none" stroke="var(--color-surface-alt)" strokeWidth="45" />
                 {segments.map((segment, index) => (
                   <circle
                     key={index}
                     cx="50"
                     cy="50"
-                    r="25"
+                    r="22.5"
                     fill="none"
                     stroke={segment.color}
-                    strokeWidth={hoveredSegment && hoveredSegment.id === segment.id ? 53 : 50}
-                    strokeDasharray={`${segment.percent * 1.57079} ${157.079 - segment.percent * 1.57079}`}
-                    strokeDashoffset={-(segment.start * 1.57079)}
+                    strokeWidth={hoveredSegment && hoveredSegment.id === segment.id ? 48 : 45}
+                    strokeDasharray={`${segment.percent * 1.41372} ${141.372 - segment.percent * 1.41372}`}
+                    strokeDashoffset={-(segment.start * 1.41372)}
                     className="kfpl-investment-donut-segment"
                     style={{
                       transform: hoveredSegment && hoveredSegment.id === segment.id ? 'scale(1.02)' : 'scale(1)',
@@ -657,9 +667,6 @@ export default function InvestmentOverview() {
                     }}
                     onMouseEnter={() => setHoveredSegment(segment)}
                     onMouseLeave={() => setHoveredSegment(null)}
-                    onMouseMove={(e) => {
-                      setTooltipPos({ x: e.clientX, y: e.clientY });
-                    }}
                   />
                 ))}
               </svg>
@@ -688,48 +695,49 @@ export default function InvestmentOverview() {
                 </div>
               ))}
             </div>
-          </div>
 
-          {hoveredSegment && (
-            <div
-              className="kfpl-chart-tooltip"
-              style={{
-                position: 'fixed',
-                left: tooltipPos.x + 15,
-                top: tooltipPos.y + 15,
-                background: 'rgba(10, 25, 18, 0.96)',
-                border: '1px solid rgba(201, 168, 76, 0.3)',
-                color: '#ffffff',
-                padding: '10px 14px',
-                borderRadius: '10px',
-                fontSize: '0.8rem',
-                zIndex: 99999,
-                pointerEvents: 'none',
-                boxShadow: '0 8px 24px rgba(6, 29, 19, 0.3)',
-                backdropFilter: 'blur(8px)',
-              }}
-            >
-              <div style={{ fontWeight: 700, color: 'var(--color-gold)', marginBottom: '4px', display: 'flex', alignItems: 'center', gap: '6px' }}>
-                <span style={{ display: 'inline-block', width: '8px', height: '8px', borderRadius: '50%', background: hoveredSegment.color }}></span>
-                {hoveredSegment.projectName || (
-                  hoveredSegment.segment === 'Film Making' ? 'Project Vanguard' :
-                  hoveredSegment.segment === 'Distribution' ? 'CineDistro Global' :
-                  hoveredSegment.segment === 'Music' ? 'Rhythm Nation' :
-                  hoveredSegment.segment === 'Content IP Bank' ? 'IP Vault Alpha' :
-                  hoveredSegment.segment === 'Trading & Syndication' ? 'TradeSync' : 'ScreenX Cinemas'
-                )}
+            {hoveredSegment && (
+              <div
+                className="kfpl-chart-tooltip"
+                style={{
+                  position: 'absolute',
+                  left: `${tooltipPos.x}px`,
+                  top: `${tooltipPos.y - 15}px`,
+                  transform: 'translate(-50%, -100%)',
+                  background: 'rgba(10, 25, 18, 0.96)',
+                  border: '1px solid rgba(201, 168, 76, 0.3)',
+                  color: '#ffffff',
+                  padding: '10px 14px',
+                  borderRadius: '10px',
+                  fontSize: '0.8rem',
+                  zIndex: 99999,
+                  pointerEvents: 'none',
+                  boxShadow: '0 8px 24px rgba(6, 29, 19, 0.3)',
+                  backdropFilter: 'blur(8px)',
+                }}
+              >
+                <div style={{ fontWeight: 700, color: 'var(--color-gold)', marginBottom: '4px', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                  <span style={{ display: 'inline-block', width: '8px', height: '8px', borderRadius: '50%', background: hoveredSegment.color }}></span>
+                  {hoveredSegment.projectName || (
+                    hoveredSegment.segment === 'Film Making' ? 'Project Vanguard' :
+                    hoveredSegment.segment === 'Distribution' ? 'CineDistro Global' :
+                    hoveredSegment.segment === 'Music' ? 'Rhythm Nation' :
+                    hoveredSegment.segment === 'Content IP Bank' ? 'IP Vault Alpha' :
+                    hoveredSegment.segment === 'Trading & Syndication' ? 'TradeSync' : 'ScreenX Cinemas'
+                  )}
+                </div>
+                <div style={{ color: 'rgba(255,255,255,0.7)', fontSize: '0.75rem', marginBottom: '2px' }}>
+                  Segment: <strong>{hoveredSegment.segment}</strong>
+                </div>
+                <div style={{ color: 'rgba(255,255,255,0.7)', fontSize: '0.75rem', marginBottom: '4px' }}>
+                  Share: <strong>{hoveredSegment.percent.toFixed(1)}%</strong>
+                </div>
+                <div style={{ fontWeight: 800, color: '#10B981', fontSize: '0.85rem' }}>
+                  {formatAmount(hoveredSegment.amount)}
+                </div>
               </div>
-              <div style={{ color: 'rgba(255,255,255,0.7)', fontSize: '0.75rem', marginBottom: '2px' }}>
-                Segment: <strong>{hoveredSegment.segment}</strong>
-              </div>
-              <div style={{ color: 'rgba(255,255,255,0.7)', fontSize: '0.75rem', marginBottom: '4px' }}>
-                Share: <strong>{hoveredSegment.percent.toFixed(1)}%</strong>
-              </div>
-              <div style={{ fontWeight: 800, color: '#10B981', fontSize: '0.85rem' }}>
-                {formatAmount(hoveredSegment.amount)}
-              </div>
-            </div>
-          )}
+            )}
+          </div>
         </div>
 
         <div className="kfpl-calculator kfpl-investment-card">
