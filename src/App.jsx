@@ -28,6 +28,7 @@ import Profile from './pages/profile/Profile';
 import MediaFeed from './pages/media/MediaFeed';
 import MediaDetail from './pages/media/MediaDetail';
 import OnboardingDetails from './pages/onboarding/OnboardingDetails';
+import FAQPage from './pages/faq/FAQPage';
 import NotFound from './pages/NotFound';
 
 // Protected Route Wrapper
@@ -68,6 +69,7 @@ export default function App() {
             <Route path="/media" element={<MediaFeed />} />
             <Route path="/media/:id" element={<MediaDetail />} />
             <Route path="/onboarding/details" element={<OnboardingDetails />} />
+            <Route path="/faq" element={<FAQPage />} />
           </Route>
 
           {/* Redirects & Catch-all */}

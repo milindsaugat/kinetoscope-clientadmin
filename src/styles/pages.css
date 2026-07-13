@@ -14,7 +14,7 @@
   grid-template-columns: 1fr 1fr;
   font-family: 'Inter', sans-serif;
   overflow: hidden;
-  background: var(--color-navy);
+  background: linear-gradient(135deg, #f0fdf4 0%, #e8f5e9 50%, #d1e7dd 100%);
 }
 
 .kfpl-login-wallpaper {
@@ -66,7 +66,7 @@
 
 .kfpl-login-panel {
   display: flex; align-items: center; justify-content: center;
-  background: var(--color-navy); padding: 40px;
+  background: #ffffff; padding: 40px;
   position: relative; height: 100%; overflow-y: auto;
   overflow-x: hidden;
 }
@@ -75,7 +75,7 @@
   content: '';
   position: absolute; top: -150px; right: -150px;
   width: 400px; height: 400px;
-  background: radial-gradient(circle, rgba(16,185,129,0.08) 0%, transparent 70%);
+  background: radial-gradient(circle, rgba(16,185,129,0.06) 0%, transparent 70%);
   border-radius: 50%; pointer-events: none;
 }
 
@@ -92,24 +92,24 @@
 }
 
 .kfpl-login-title {
-  font-size: 1.5rem; font-weight: 800; color: #fff;
+  font-size: 1.5rem; font-weight: 800; color: #0f172a;
   margin-bottom: 6px; letter-spacing: -0.3px;
 }
 
-.kfpl-login-subtitle { font-size: 0.875rem; color: rgba(240,253,244,0.5); font-weight: 400; }
+.kfpl-login-subtitle { font-size: 0.875rem; color: #64748b; font-weight: 400; }
 
 .kfpl-login-tabs {
   display: flex; gap: 4px;
-  background: rgba(255,255,255,0.03); border-radius: 12px;
+  background: #f1f5f9; border-radius: 12px;
   padding: 4px; margin-bottom: 28px;
-  border: 1px solid rgba(255,255,255,0.06);
+  border: 1px solid #e2e8f0;
 }
 
 .kfpl-login-tab {
   flex: 1; padding: 10px 16px; border: none; border-radius: 9px;
   font-size: 0.875rem; font-weight: 600; cursor: pointer;
   transition: all 0.25s ease; background: transparent;
-  color: rgba(255,255,255,0.4); font-family: 'Inter', sans-serif;
+  color: #64748b; font-family: 'Inter', sans-serif;
 }
 
 .kfpl-login-tab.active {
@@ -117,37 +117,37 @@
   color: #fff; box-shadow: 0 4px 16px rgba(16,185,129,0.3);
 }
 
-.kfpl-login-tab:hover:not(.active) { color: rgba(255,255,255,0.7); background: rgba(255,255,255,0.04); }
+.kfpl-login-tab:hover:not(.active) { color: #334155; background: #e2e8f0; }
 
 .kfpl-login-form { display: flex; flex-direction: column; gap: 18px; }
 .kfpl-login-input-group { display: flex; flex-direction: column; gap: 6px; }
 
 .kfpl-login-label {
   font-size: 0.8125rem; font-weight: 600;
-  color: rgba(240,253,244,0.65); letter-spacing: 0.2px;
+  color: #475569; letter-spacing: 0.2px;
 }
 
 .kfpl-login-input {
   width: 100%; padding: 12px 16px;
-  background: rgba(255,255,255,0.04);
-  border: 1.5px solid rgba(255,255,255,0.08);
-  border-radius: 10px; font-size: 0.875rem; color: #fff;
+  background: #f8fafc;
+  border: 1.5px solid #e2e8f0;
+  border-radius: 10px; font-size: 0.875rem; color: #1e293b;
   font-family: 'Inter', sans-serif; transition: all 0.25s ease; outline: none;
 }
 
-.kfpl-login-input::placeholder { color: rgba(255,255,255,0.25); }
+.kfpl-login-input::placeholder { color: #94a3b8; }
 
 .kfpl-login-input:focus {
   border-color: var(--color-gold);
-  background: rgba(16, 185, 129, 0.04);
-  box-shadow: 0 0 0 3px rgba(16, 185, 129, 0.15), 0 0 20px rgba(16, 185, 129, 0.05);
+  background: #fff;
+  box-shadow: 0 0 0 3px rgba(16, 185, 129, 0.12), 0 0 20px rgba(16, 185, 129, 0.04);
 }
 
 .kfpl-login-password-wrap { position: relative; }
 
 .kfpl-login-password-toggle {
   position: absolute; right: 14px; top: 50%; transform: translateY(-50%);
-  color: rgba(255,255,255,0.4); cursor: pointer;
+  color: #94a3b8; cursor: pointer;
   background: none; border: none; padding: 0;
   display: flex; align-items: center; transition: all 0.2s ease;
 }
@@ -159,7 +159,7 @@
 
 .kfpl-login-remember {
   display: flex; align-items: center; gap: 8px;
-  font-size: 0.8125rem; color: rgba(240,253,244,0.5); cursor: pointer;
+  font-size: 0.8125rem; color: #64748b; cursor: pointer;
 }
 
 .kfpl-login-remember input[type='checkbox'] { accent-color: var(--color-gold); width: 14px; height: 14px; }
@@ -198,23 +198,23 @@
 
 .kfpl-login-error {
   display: flex; align-items: center; gap: 10px;
-  padding: 11px 16px; background: rgba(239,68,68,0.08);
-  border: 1px solid rgba(239,68,68,0.18); border-radius: 10px;
-  color: #FCA5A5; font-size: 0.8125rem; font-weight: 500; margin-bottom: 6px;
+  padding: 11px 16px; background: #fef2f2;
+  border: 1px solid #fecaca; border-radius: 10px;
+  color: #dc2626; font-size: 0.8125rem; font-weight: 500; margin-bottom: 6px;
 }
 
 .kfpl-login-error svg { width: 16px; height: 16px; flex-shrink: 0; }
 
 .kfpl-login-success {
   display: flex; align-items: center; gap: 10px;
-  padding: 11px 16px; background: rgba(34,197,94,0.08);
-  border: 1px solid rgba(34,197,94,0.18); border-radius: 10px;
-  color: #86EFAC; font-size: 0.8125rem; font-weight: 500; margin-bottom: 6px;
+  padding: 11px 16px; background: #f0fdf4;
+  border: 1px solid #bbf7d0; border-radius: 10px;
+  color: #16a34a; font-size: 0.8125rem; font-weight: 500; margin-bottom: 6px;
 }
 
 .kfpl-login-footer {
   text-align: center; margin-top: 32px;
-  font-size: 0.75rem; color: rgba(240,253,244,0.25); letter-spacing: 0.3px;
+  font-size: 0.75rem; color: #94a3b8; letter-spacing: 0.3px;
 }
 
 .kfpl-login-register-scroll {
@@ -223,7 +223,7 @@
 
 .kfpl-login-register-scroll::-webkit-scrollbar { width: 6px; }
 .kfpl-login-register-scroll::-webkit-scrollbar-track { background: transparent; }
-.kfpl-login-register-scroll::-webkit-scrollbar-thumb { background: rgba(16, 185, 129, 0.3); border-radius: 4px; }
+.kfpl-login-register-scroll::-webkit-scrollbar-thumb { background: rgba(16, 185, 129, 0.4); border-radius: 4px; }
 
 .kfpl-login-form-row { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
 
@@ -234,8 +234,8 @@
 }
 
 .kfpl-login-divider { display: flex; align-items: center; gap: 14px; margin: 4px 0; }
-.kfpl-login-divider::before, .kfpl-login-divider::after { content: ''; flex: 1; height: 1px; background: rgba(255,255,255,0.06); }
-.kfpl-login-divider span { font-size: 0.75rem; color: rgba(255,255,255,0.25); font-weight: 500; }
+.kfpl-login-divider::before, .kfpl-login-divider::after { content: ''; flex: 1; height: 1px; background: #e2e8f0; }
+.kfpl-login-divider span { font-size: 0.75rem; color: #94a3b8; font-weight: 500; }
 
 .animate-scale-in { animation: loginScaleIn 0.5s cubic-bezier(0.34, 1.56, 0.64, 1); }
 .animate-fade-in { animation: loginFadeIn 0.35s ease; }

@@ -100,6 +100,7 @@ const navSections = [
     title: 'More',
     items: [
       { path: '/media', icon: 'media', label: 'Media & News' },
+      { path: '/faq', icon: 'support', label: 'FAQ' },
       { path: '/profile', icon: 'profile', label: 'My Profile' },
     ],
   },

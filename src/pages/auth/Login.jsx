@@ -487,7 +487,7 @@ export default function Login() {
                     </div>
                     <div className="kfpl-login-input-group">
                       <label className="kfpl-login-label">Risk Profile</label>
-                      <select name="riskProfile" className="kfpl-login-input" value={regForm.riskProfile} onChange={handleRegisterChange} style={{ background: '#12121a' }}>
+                      <select name="riskProfile" className="kfpl-login-input" value={regForm.riskProfile} onChange={handleRegisterChange}>
                         <option value="Conservative">Conservative</option>
                         <option value="Moderate">Moderate</option>
                         <option value="Aggressive">Aggressive</option>
@@ -497,14 +497,10 @@ export default function Login() {
                   <div className="kfpl-login-form-row">
                     <div className="kfpl-login-input-group">
                       <label className="kfpl-login-label">Citizenship</label>
-                      <select name="citizenship" className="kfpl-login-input" value={regForm.citizenship} onChange={handleRegisterChange} style={{ background: '#12121a' }}>
+                      <select name="citizenship" className="kfpl-login-input" value={regForm.citizenship} onChange={handleRegisterChange}>
                         <option value="National">National (Domestic)</option>
                         <option value="International">International</option>
                       </select>
-                    </div>
-                    <div className="kfpl-login-input-group">
-                      <label className="kfpl-login-label">Monthly ROI %</label>
-                      <input type="number" step="0.1" name="roiPercentage" className="kfpl-login-input" value={regForm.roiPercentage} onChange={handleRegisterChange} />
                     </div>
                   </div>
                   <div className="kfpl-login-input-group">
@@ -554,7 +550,7 @@ export default function Login() {
                     </div>
                     <div className="kfpl-login-input-group">
                       <label className="kfpl-login-label">Relation</label>
-                      <select name="nomineeRelation" className="kfpl-login-input" value={regForm.nomineeRelation} onChange={handleRegisterChange} style={{ background: '#12121a' }}>
+                      <select name="nomineeRelation" className="kfpl-login-input" value={regForm.nomineeRelation} onChange={handleRegisterChange}>
                         <option value="">Select Relation</option>
                         <option value="Spouse">Spouse</option>
                         <option value="Parent">Parent</option>
