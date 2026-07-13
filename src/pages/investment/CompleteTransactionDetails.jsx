@@ -12,6 +12,20 @@ import {
 import { useToast } from '../../components/ui/Toast';
 import { apiRequest } from '../../config/apiHelper';
 
+const formatClientID = (rawId) => {
+  if (!rawId || rawId === '—') return '—';
+  if (rawId.startsWith('KFPL-CL-')) return rawId;
+  const digits = rawId.match(/\d+/);
+  if (digits) {
+    let val = parseInt(digits[0], 10);
+    if (val < 1000) {
+      val = 1000 + val;
+    }
+    return `KFPL-CL-${val}`;
+  }
+  return 'KFPL-CL-1001';
+};
+
 export default function CompleteTransactionDetails() {
   const addToast = useToast();
   const [filter, setFilter] = useState('all');
@@ -27,8 +41,8 @@ export default function CompleteTransactionDetails() {
         const list = Array.isArray(res) ? res : (res.data?.payouts || res.payouts || (Array.isArray(res.data) ? res.data : []));
         const mapped = list.map((r, idx) => ({
           id: r.id || r._id || (idx + 1),
-          investorName: r.investorName || mockClient.name,
-          clientId: r.clientId || mockClient.clientId,
+          investorName: r.recipientName || r.investorName || r.name || mockClient.name,
+          clientId: formatClientID(r.recipientCode || r.clientId || mockClient.clientId),
           month: r.month || r.period || '—',
           amount: Number(r.amount || r.received || 0),
           status: (r.status || 'pending').toLowerCase(),
