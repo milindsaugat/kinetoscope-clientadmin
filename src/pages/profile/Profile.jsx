@@ -7,7 +7,7 @@
 
 import { useState, useEffect } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
-import { mockClient as fallbackClient, mockFAQs } from '../../data/mockData';
+import { mockFAQs } from '../../data/mockData';
 import { RISK_PROFILES, NOMINEE_RELATIONS } from '../../constants';
 import { useToast } from '../../components/ui/Toast';
 import { apiRequest } from '../../config/apiHelper';
@@ -20,35 +20,78 @@ export default function Profile() {
   const tabParam = searchParams.get('tab') || 'details';
   const [activeTab, setActiveTab] = useState(tabParam);
 
-  const [client, setClient] = useState(fallbackClient);
-  const [clientEmail, setClientEmail] = useState(fallbackClient.email);
+  const [client, setClient] = useState(null);
+  const [clientEmail, setClientEmail] = useState('');
+  const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     const loadProfile = async () => {
       try {
-        const response = await apiRequest('/api/client/auth/me');
+        const response = await apiRequest('/api/client/profile');
         if (response) {
-          const profile = response.client || response.user || response.data || response;
-          setClient(profile);
-          setClientEmail(profile.email || '');
+          const extractProfile = (res) => {
+            if (!res) return null;
+            if (res.profile) return res.profile;
+            if (res.client) return res.client;
+            if (res.user) return res.user;
+            if (res.data) {
+              if (res.data.profile) return res.data.profile;
+              if (res.data.client) return res.data.client;
+              if (res.data.user) return res.data.user;
+              return res.data;
+            }
+            return res;
+          };
+          const formatClientID = (rawId) => {
+            if (!rawId || rawId === '—') return '—';
+            if (typeof rawId !== 'string') rawId = String(rawId);
+            if (rawId.startsWith('KFPL-CL-') || rawId.startsWith('KFPL-')) return rawId;
+            const digits = rawId.match(/\d+/);
+            if (digits) {
+              let val = parseInt(digits[0], 10);
+              if (val < 1000) {
+                val = 1000 + val;
+              }
+              return `KFPL-CL-${val}`;
+            }
+            return 'KFPL-CL-1001';
+          };
+          const rawProfile = extractProfile(response);
+          if (rawProfile) {
+            const normalized = {
+              ...rawProfile,
+              name: rawProfile.fullName || rawProfile.name || '',
+              clientId: formatClientID(rawProfile.clientCode || rawProfile.clientId || rawProfile.userId || rawProfile._id || ''),
+              category: rawProfile.tier || rawProfile.category || 'Silver',
+              status: rawProfile.status || 'Active',
+              memberSince: rawProfile.joinDate || rawProfile.memberSince || rawProfile.createdAt || '',
+              agentName: rawProfile.assignedAgentName || rawProfile.agentName || '',
+              agentId: rawProfile.assignedAgentCode || rawProfile.assignedAgent || rawProfile.agentId || '',
+              emergencyContact: rawProfile.emergencyContact || rawProfile.emergencyPhone || '—',
+              riskProfile: rawProfile.riskProfile || 'Conservative',
+              nominee: {
+                name: rawProfile.nomineeName || rawProfile.nominee?.name || '',
+                relation: rawProfile.nomineeRelation || rawProfile.nominee?.relation || '',
+                contact: rawProfile.nomineePhone || rawProfile.nomineeContact || rawProfile.nominee?.phone || rawProfile.nominee?.contact || '',
+                email: rawProfile.nomineeEmail || rawProfile.nominee?.email || '',
+              }
+            };
+            setClient(normalized);
+            setClientEmail(normalized.email || '');
+          }
         }
       } catch (err) {
-        console.warn('Failed to load client profile from API, using fallback:', err);
-        const authData = localStorage.getItem('kfpl_client_auth');
-        if (authData) {
-          try {
-            const parsed = JSON.parse(authData);
-            const email = parsed.client?.email || parsed.email || fallbackClient.email;
-            setClientEmail(email);
-          } catch (e) { /* ignore */ }
-        }
+        console.error('Failed to load client profile from API:', err);
+        addToast('error', 'Error', 'Failed to load profile details.');
+      } finally {
+        setLoading(false);
       }
     };
 
     loadProfile();
   }, []);
 
-  const riskProfile = RISK_PROFILES.find(r => r.id === client.riskProfile);
+  const riskProfile = client ? RISK_PROFILES.find(r => r.id.toLowerCase() === client.riskProfile?.toLowerCase()) : null;
 
   // Sync tab with URL parameter changes
   useEffect(() => {
@@ -166,6 +209,25 @@ export default function Profile() {
 
   /* ── FAQ State ─────────────────────── */
   const [openFaq, setOpenFaq] = useState(null);
+
+  if (loading) {
+    return (
+      <div className="kfpl-page" style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', minHeight: '400px' }}>
+        <div className="kfpl-loading-spinner" />
+      </div>
+    );
+  }
+
+  if (!client) {
+    return (
+      <div className="kfpl-page" style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', minHeight: '400px', gap: '16px' }}>
+        <p style={{ color: 'var(--color-text-secondary)', fontSize: '0.95rem' }}>Failed to load profile details.</p>
+        <button className="kfpl-btn kfpl-btn--primary kfpl-btn--sm" onClick={() => window.location.reload()}>
+          Retry
+        </button>
+      </div>
+    );
+  }
 
   return (
     <div className="kfpl-page">
