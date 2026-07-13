@@ -5,8 +5,6 @@
 
 import { useState, useEffect } from 'react';
 import {
-  mockClient,
-  mockROIHistory,
   formatCurrency
 } from '../../data/mockData';
 import { useToast } from '../../components/ui/Toast';
@@ -41,8 +39,8 @@ export default function CompleteTransactionDetails() {
         const list = Array.isArray(res) ? res : (res.data?.payouts || res.payouts || (Array.isArray(res.data) ? res.data : []));
         const mapped = list.map((r, idx) => ({
           id: r.id || r._id || (idx + 1),
-          investorName: r.recipientName || r.investorName || r.name || mockClient.name,
-          clientId: formatClientID(r.recipientCode || r.clientId || mockClient.clientId),
+          investorName: r.recipientName || r.investorName || r.name || 'Client',
+          clientId: formatClientID(r.recipientCode || r.clientId || ''),
           month: r.month || r.period || '—',
           amount: Number(r.amount || r.received || 0),
           status: (r.status || 'pending').toLowerCase(),
