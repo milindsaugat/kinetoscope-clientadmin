@@ -312,28 +312,21 @@ export default function Login() {
 
       const resData = await response.json();
 
-      // We always sync local data as fallback
-      syncLocalClient(resData.data?.header?.clientCode);
-
       if (response.ok) {
+        syncLocalClient(resData.data?.header?.clientCode || resData.clientCode);
         addToast('Registration successful! You can now log in.', 'success', 'Account Created');
         setActiveTab('login');
         setEmail(regForm.email);
         setStep('credentials');
       } else {
-        // Even if server returns error (e.g. auth check on super admin end), we allow local testing
-        addToast('Registered successfully in local sandbox storage.', 'success', 'Registration Completed');
-        setActiveTab('login');
-        setEmail(regForm.email);
-        setStep('credentials');
+        const errorMsg = resData.message || resData.error || 'Registration failed. Please check your inputs.';
+        setError(errorMsg);
+        addToast(errorMsg, 'danger', 'Error');
       }
     } catch (err) {
-      console.error(err);
-      syncLocalClient();
-      addToast('Offline mode: Saved account to local sandbox.', 'success', 'Registration Saved');
-      setActiveTab('login');
-      setEmail(regForm.email);
-      setStep('credentials');
+      console.error('Registration error:', err);
+      setError(err.message || 'Network error or server unavailable.');
+      addToast(err.message || 'Network error', 'danger', 'Error');
     } finally {
       setLoading(false);
     }
