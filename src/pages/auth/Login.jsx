@@ -305,7 +305,7 @@ export default function Login() {
       if (agreementFile) formData.append('agreementDocument', agreementFile);
 
       // Submit to backend
-      const response = await fetch(getApiUrl('/api/super-admin/clients'), {
+      const response = await fetch(getApiUrl('/api/client/auth/register'), {
         method: 'POST',
         body: formData
       });

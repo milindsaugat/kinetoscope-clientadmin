@@ -5,8 +5,8 @@
    ============================================================ */
 
 import { useState, useEffect } from 'react';
+import { apiRequest } from '../../config/apiHelper';
 
-const STORAGE_KEY = 'kfpl_faqs';
 const PORTAL_TYPE = 'client';
 
 // Default sample FAQs if none are set by admin
@@ -43,18 +43,38 @@ const defaultFAQs = [
 
 export default function FAQPage() {
   const [faqs, setFaqs] = useState([]);
+  const [loading, setLoading] = useState(true);
   const [expandedId, setExpandedId] = useState(null);
   const [searchQuery, setSearchQuery] = useState('');
 
   useEffect(() => {
-    try {
-      const stored = localStorage.getItem(STORAGE_KEY);
-      const parsed = stored ? JSON.parse(stored) : [];
-      const filtered = parsed.filter(f => f.target === PORTAL_TYPE || f.target === 'both');
-      setFaqs(filtered.length > 0 ? filtered : defaultFAQs.filter(f => f.target === PORTAL_TYPE || f.target === 'both'));
-    } catch {
-      setFaqs(defaultFAQs.filter(f => f.target === PORTAL_TYPE || f.target === 'both'));
-    }
+    const fetchFAQs = async () => {
+      setLoading(true);
+      try {
+        const res = await apiRequest('/api/client/faqs');
+        if (res.success && res.data) {
+          const mapped = res.data.map(faq => ({
+            id: faq._id,
+            question: faq.question,
+            answer: faq.answer,
+            target: faq.targetPortal === 'Both Portals (Client & Agent)' ? 'both' :
+                    faq.targetPortal === 'Client Dashboard Only' ? 'client' :
+                    faq.targetPortal === 'Agent Dashboard Only' ? 'agent' : 'both',
+            priority: faq.priority ?? 0
+          }));
+          mapped.sort((a, b) => a.priority - b.priority);
+          setFaqs(mapped.length > 0 ? mapped : defaultFAQs.filter(f => f.target === PORTAL_TYPE || f.target === 'both'));
+        } else {
+          setFaqs(defaultFAQs.filter(f => f.target === PORTAL_TYPE || f.target === 'both'));
+        }
+      } catch (err) {
+        console.error('Failed to fetch FAQs:', err);
+        setFaqs(defaultFAQs.filter(f => f.target === PORTAL_TYPE || f.target === 'both'));
+      } finally {
+        setLoading(false);
+      }
+    };
+    fetchFAQs();
   }, []);
 
   const filtered = searchQuery
@@ -91,7 +111,31 @@ export default function FAQPage() {
       </div>
 
       {/* FAQ Accordion */}
-      {filtered.length === 0 ? (
+      {loading ? (
+        <div style={{
+          textAlign: 'center', padding: '60px 20px',
+          background: 'var(--color-surface)', borderRadius: '12px',
+          border: '1px solid var(--color-border)',
+          display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center'
+        }}>
+          <div className="spinner" style={{
+            border: '4px solid rgba(0, 0, 0, 0.1)',
+            width: '36px',
+            height: '36px',
+            borderRadius: '50%',
+            borderLeftColor: 'var(--color-gold, #10B981)',
+            animation: 'spin 1s linear infinite',
+            marginBottom: '16px'
+          }}></div>
+          <style>{`
+            @keyframes spin {
+              0% { transform: rotate(0deg); }
+              100% { transform: rotate(360deg); }
+            }
+          `}</style>
+          <p style={{ color: 'var(--color-text-muted)', fontSize: '0.875rem' }}>Loading FAQs...</p>
+        </div>
+      ) : filtered.length === 0 ? (
         <div style={{
           textAlign: 'center', padding: '60px 20px',
           background: 'var(--color-surface)', borderRadius: '12px',
