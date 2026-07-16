@@ -52,8 +52,18 @@ export default function PerksAndRecognition() {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
+    // --- SWR Cache Initialization for Instant Load (0ms) ---
+    try {
+      const cacheData = localStorage.getItem('kfpl_client_perks_cache');
+      if (cacheData) {
+        setPerksData(JSON.parse(cacheData));
+        setLoading(false);
+      }
+    } catch (e) {
+      console.warn('Failed to parse perks cache:', e);
+    }
+
     const fetchPerks = async () => {
-      setLoading(true);
       try {
         const res = await apiRequest('/api/client/perks');
         
@@ -61,7 +71,7 @@ export default function PerksAndRecognition() {
         const rawTier = res.currentTier || res.tier || 'Silver';
         const currentTier = rawTier.charAt(0).toUpperCase() + rawTier.slice(1).toLowerCase();
 
-        setPerksData({
+        const freshPerks = {
           currentTier,
           nextTierAmount: res.nextTierAmount || 0,
           progressPercent: res.progressPercent !== undefined ? res.progressPercent : (res.upgradePercentage || 0),
@@ -71,7 +81,10 @@ export default function PerksAndRecognition() {
             event: h.event || h.perkName || h.title || '',
             type: h.type || 'perk'
           }))
-        });
+        };
+
+        setPerksData(freshPerks);
+        localStorage.setItem('kfpl_client_perks_cache', JSON.stringify(freshPerks));
       } catch (err) {
         console.error('Failed to fetch client perks:', err);
       } finally {

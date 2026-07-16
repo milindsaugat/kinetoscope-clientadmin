@@ -339,7 +339,21 @@ export default function Login() {
       try { list = JSON.parse(stored); } catch (e) { console.error(e); }
     }
     const nextId = list.length > 0 ? Math.max(...list.map(i => i.id || 0)) + 1 : 1;
-    const clientCode = backendCode || `KFPL-${1000 + nextId}`;
+    const rawClientCode = backendCode || `KFPL-CL-${1000 + nextId}`;
+    let clientCode = rawClientCode;
+    if (rawClientCode) {
+      const str = String(rawClientCode).trim();
+      if (/^KFPL-CL-\d+$/i.test(str)) {
+        clientCode = str.toUpperCase();
+      } else {
+        const digitsMatch = str.match(/\d+/);
+        if (digitsMatch) {
+          let val = parseInt(digitsMatch[0], 10);
+          if (val < 1000) val = 1000 + val;
+          clientCode = `KFPL-CL-${val}`;
+        }
+      }
+    }
 
     const newClientObj = {
       id: nextId,

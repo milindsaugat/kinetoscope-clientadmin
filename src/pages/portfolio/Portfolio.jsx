@@ -126,13 +126,60 @@ export default function Portfolio() {
   };
 
   useEffect(() => {
+    // --- SWR Cache Initialization for Instant Load (0ms) ---
+    try {
+      const cacheData = localStorage.getItem('kfpl_client_portfolio_cache');
+      if (cacheData) {
+        setProjects(JSON.parse(cacheData));
+        setLoading(false);
+      }
+    } catch (e) {
+      console.warn('Failed to parse portfolio cache:', e);
+    }
+
     const fetchProjects = async () => {
-      setLoading(true);
       try {
-        const data = await apiRequest('/api/client/projects');
-        const raw = extractProjects(data);
+        const [projectsRes, investmentsRes] = await Promise.all([
+          apiRequest('/api/client/projects').catch(() => null),
+          apiRequest('/api/client/investments').catch(() => null)
+        ]);
+
+        const raw = extractProjects(projectsRes);
         const filteredRaw = raw.filter(p => p.name !== '__KFPL_DUMMY__');
-        const mapped = filteredRaw.map(p => ({
+
+        // Extract client's invested project IDs and segment names
+        let myProjectIds = [];
+        let mySegments = [];
+        if (investmentsRes) {
+          const list = Array.isArray(investmentsRes) 
+            ? investmentsRes 
+            : (investmentsRes.investments || investmentsRes.data?.investments || (Array.isArray(investmentsRes.data) ? investmentsRes.data : []));
+          
+          list.forEach(inv => {
+            const proj = inv.projectId || inv.project || '';
+            if (proj && typeof proj === 'object') {
+              myProjectIds.push(String(proj._id || proj.id || ''));
+            } else if (proj) {
+              myProjectIds.push(String(proj));
+            }
+            if (inv.segment) {
+              mySegments.push(inv.segment.trim().toLowerCase());
+            }
+          });
+        }
+
+        // Filter projects: only show projects the client has invested in (by ID or segment name fallback)
+        const investedProjects = filteredRaw.filter(p => {
+          const pId = String(p._id || p.id);
+          const hasIdMatch = myProjectIds.includes(pId);
+          if (hasIdMatch) return true;
+
+          // Fallback: match by segment name if ID doesn't match directly
+          const pSeg = (p.segment || '').trim().toLowerCase();
+          return mySegments.includes(pSeg);
+        });
+
+        const mapped = investedProjects.map(p => ({
           id: p._id || p.id,
           name: p.name || '',
           segment: p.segment || '',
@@ -168,6 +215,7 @@ export default function Portfolio() {
           allocation: p.allocationFocus || p.allocation || '',
         }));
         setProjects(mapped);
+        localStorage.setItem('kfpl_client_portfolio_cache', JSON.stringify(mapped));
       } catch (err) {
         console.error('Failed to load portfolio projects, using fallback:', err);
         const stored = localStorage.getItem('kfpl_portfolio_projects');

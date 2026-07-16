@@ -326,68 +326,150 @@ export default function InvestmentOverview() {
   const [tooltipPos, setTooltipPos] = useState({ x: 0, y: 0 });
 
   useEffect(() => {
+    // --- SWR Cache Initialization for Instant Load ---
+    try {
+      const cacheData = localStorage.getItem('kfpl_client_investment_overview_cache');
+      if (cacheData) {
+        const parsed = JSON.parse(cacheData);
+        if (parsed.investments) setInvestments(parsed.investments);
+        if (parsed.roiHistory) setRoiHistory(parsed.roiHistory);
+        if (parsed.clientDividends) setClientDividends(parsed.clientDividends);
+        if (parsed.totalDividends) setTotalDividends(parsed.totalDividends);
+        if (parsed.client) setClient(parsed.client);
+      }
+    } catch (e) {
+      console.warn('Failed to parse investment overview cache:', e);
+    }
+
     const loadDashboardData = async () => {
       try {
-        // 1. Fetch client investments
-        const response = await apiRequest('/api/client/investments');
+        // Fetch all data concurrently!
+        const [invRes, dashRes, divListRes, statsRes, projectsRes] = await Promise.all([
+          apiRequest('/api/client/investments').catch(() => null),
+          apiRequest('/api/client/dashboard').catch(() => null),
+          apiRequest('/api/client/dividends').catch(() => null),
+          apiRequest('/api/client/dividends/stats').catch(() => null),
+          apiRequest('/api/client/projects').catch(() => null)
+        ]);
+
         let activeInvestments = [];
-        if (response) {
-          const list = Array.isArray(response) 
-            ? response 
-            : (response.investments || response.data?.investments || (Array.isArray(response.data) ? response.data : []));
+        let freshRoiHistory = [];
+        let allProjects = [];
+
+        if (projectsRes) {
+          allProjects = Array.isArray(projectsRes) 
+            ? projectsRes 
+            : (projectsRes.projects || projectsRes.data?.projects || (Array.isArray(projectsRes.data) ? projectsRes.data : []));
+        }
+
+        // 1. Process client investments
+        if (invRes) {
+          const list = Array.isArray(invRes) 
+            ? invRes 
+            : (invRes.investments || invRes.data?.investments || (Array.isArray(invRes.data) ? invRes.data : []));
           if (Array.isArray(list)) {
-            const normalizedList = list.map(inv => ({
-              ...inv,
-              amount: inv.investmentAmount || inv.amount || 0,
-              roiAllocated: inv.roiPercentage || inv.roiAllocated || inv.roi || 0,
-              roi: inv.roiPercentage || inv.roiAllocated || inv.roi || 0,
-              date: inv.investmentDate || inv.date || inv.createdAt,
-              contractPeriod: inv.durationMonths || inv.contractPeriod || 24
-            }));
+            const normalizedList = list.map(inv => {
+              const rawProj = inv.projectId || inv.project || '';
+              let projIdStr = '';
+              let matchedProjName = '';
+
+              if (rawProj && typeof rawProj === 'object') {
+                projIdStr = String(rawProj._id || rawProj.id || '');
+                matchedProjName = rawProj.name || '';
+              } else {
+                projIdStr = String(rawProj);
+              }
+
+              // Search project name from projects list
+              if (!matchedProjName && projIdStr) {
+                const found = allProjects.find(p => String(p._id || p.id) === projIdStr);
+                if (found) {
+                  matchedProjName = found.name || '';
+                }
+              }
+
+              // Fallback to match by segment if ID match not found
+              if (!matchedProjName && inv.segment) {
+                const foundBySeg = allProjects.find(p => (p.segment || '').trim().toLowerCase() === inv.segment.trim().toLowerCase());
+                if (foundBySeg) {
+                  matchedProjName = foundBySeg.name || '';
+                }
+              }
+
+              return {
+                ...inv,
+                amount: inv.investmentAmount || inv.amount || 0,
+                roiAllocated: inv.roiPercentage || inv.roiAllocated || inv.roi || 0,
+                roi: inv.roiPercentage || inv.roiAllocated || inv.roi || 0,
+                date: inv.investmentDate || inv.date || inv.createdAt,
+                contractPeriod: inv.durationMonths || inv.contractPeriod || 24,
+                projectName: matchedProjName
+              };
+            });
             setInvestments(normalizedList);
             activeInvestments = normalizedList;
           }
           
-          const rootData = response.data || response;
-          if (rootData.client || rootData.user || response.client || response.user) {
-            setClient(rootData.client || rootData.user || response.client || response.user);
-          }
-          if (Array.isArray(rootData.roiHistory) || Array.isArray(response.roiHistory)) {
-            setRoiHistory(rootData.roiHistory || response.roiHistory);
+          const rootData = invRes.data || invRes;
+          if (rootData.client || rootData.user || invRes.client || invRes.user) {
+            setClient(rootData.client || rootData.user || invRes.client || invRes.user);
           }
         }
 
-        // 2. Fetch client dividends and stats
-        const [divListRes, statsRes] = await Promise.all([
-          apiRequest('/api/client/dividends'),
-          apiRequest('/api/client/dividends/stats')
-        ]);
-        
-        // Parse list
-        const raw = divListRes.allotments || divListRes.data?.allotments || divListRes.data || divListRes || [];
-        const mapped = (Array.isArray(raw) ? raw : []).map(d => {
-          const projectObj = d.project || d.projectId || {};
-          return {
-            id: d._id || d.id,
-            projectId: projectObj._id || projectObj.id || d.projectId || '',
-            projectName: projectObj.name || d.projectName || 'General Payout',
-            segment: projectObj.segment || d.segment || 'Other',
-            amount: d.allottedAmount || d.amount || 0,
-            creditDate: d.creditDate || d.createdAt || new Date().toISOString(),
-            adminNote: d.remarks || d.adminNote || 'Project distribution credit.'
-          };
-        });
+        // 2. Process Dashboard ROI History
+        if (dashRes) {
+          const rootDash = dashRes.data || dashRes;
+          if (Array.isArray(rootDash.roiHistory)) {
+            setRoiHistory(rootDash.roiHistory);
+            freshRoiHistory = rootDash.roiHistory;
+          }
+        }
 
-        // Filter: only show allotments for projects the client has an active investment in
-        const myProjectIds = activeInvestments.map(inv => String(inv.projectId || inv.project || ''));
-        const filtered = mapped.filter(d => myProjectIds.includes(String(d.projectId || '')));
-        setClientDividends(filtered);
+        // 3. Process Dividends
+        let freshClientDividends = [];
+        let freshTotalDividends = 0;
+        if (divListRes) {
+          const raw = divListRes.allotments || divListRes.data?.allotments || divListRes.data || divListRes || [];
+          const mapped = (Array.isArray(raw) ? raw : []).map(d => {
+            const projectObj = d.project || d.projectId || {};
+            return {
+              id: d._id || d.id,
+              projectId: projectObj._id || projectObj.id || d.projectId || '',
+              projectName: projectObj.name || d.projectName || 'General Payout',
+              segment: projectObj.segment || d.segment || 'Other',
+              amount: d.allottedAmount || d.amount || 0,
+              creditDate: d.creditDate || d.createdAt || new Date().toISOString(),
+              adminNote: d.remarks || d.adminNote || 'Project distribution credit.'
+            };
+          });
 
-        // Parse stats based on filtered allotments
+          // Filter: only show allotments for projects the client has an active investment in
+          const myProjectIds = activeInvestments.map(inv => {
+            const proj = inv.projectId || inv.project || '';
+            if (proj && typeof proj === 'object') {
+              return String(proj._id || proj.id || '');
+            }
+            return String(proj);
+          }).filter(Boolean);
+          
+          freshClientDividends = mapped.filter(d => myProjectIds.includes(String(d.projectId || '')));
+          setClientDividends(freshClientDividends);
+        }
+
         if (statsRes) {
-          const filteredTotal = filtered.reduce((sum, d) => sum + d.amount, 0);
-          setTotalDividends(filteredTotal);
+          freshTotalDividends = freshClientDividends.reduce((sum, d) => sum + d.amount, 0);
+          setTotalDividends(freshTotalDividends);
         }
+
+        // Cache results
+        localStorage.setItem('kfpl_client_investment_overview_cache', JSON.stringify({
+          investments: activeInvestments,
+          roiHistory: freshRoiHistory,
+          clientDividends: freshClientDividends,
+          totalDividends: freshTotalDividends,
+          client: client
+        }));
+
       } catch (err) {
         console.error('Failed to load client investments/dividends data:', err);
       }
@@ -423,8 +505,8 @@ export default function InvestmentOverview() {
   const weightedROI = total
     ? investments.reduce((sum, investment) => sum + investment.amount * investment.roiAllocated, 0) / total
     : 0;
-  const receivedROI = roiHistory.reduce((sum, roi) => sum + roi.received, 0);
-  const paidMonths = roiHistory.filter(roi => roi.status === 'Paid').length;
+  const receivedROI = roiHistory.reduce((sum, roi) => sum + (roi.amount || roi.received || 0), 0);
+  const paidMonths = roiHistory.filter(roi => (roi.status || '').toLowerCase() === 'paid').length;
 
   let cumulativePercent = 0;
   const segments = investments.map((investment, index) => {

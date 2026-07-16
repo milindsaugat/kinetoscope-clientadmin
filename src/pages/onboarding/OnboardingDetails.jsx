@@ -3,29 +3,75 @@
    Description: Two-step onboarding: Nominee + Risk Profile
    ============================================================ */
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { RISK_PROFILES, NOMINEE_RELATIONS } from '../../constants';
 import { mockClient } from '../../data/mockData';
+import { apiRequest } from '../../config/apiHelper';
 
 export default function OnboardingDetails() {
   const navigate = useNavigate();
   const [step, setStep] = useState(1);
-  const [nominee, setNominee] = useState({
-    name: mockClient.nominee?.name || '',
-    relation: mockClient.nominee?.relation || 'Spouse',
-    contact: mockClient.nominee?.contact || '',
-    email: mockClient.nominee?.email || ''
+  const [nominee, setNominee] = useState(() => {
+    try {
+      const authData = localStorage.getItem('kfpl_client_auth');
+      if (authData) {
+        const parsed = JSON.parse(authData);
+        const c = parsed.client || parsed.user || {};
+        if (c.nomineeName || c.nominee?.name) {
+          return {
+            name: c.nomineeName || c.nominee?.name || '',
+            relation: c.nomineeRelation || c.nominee?.relation || 'Spouse',
+            contact: c.nomineePhone || c.nomineeContact || c.nominee?.phone || c.nominee?.contact || '',
+            email: c.nomineeEmail || c.nominee?.email || ''
+          };
+        }
+      }
+    } catch (e) {}
+    return { name: '', relation: 'Spouse', contact: '', email: '' };
   });
-  const [selectedRisk, setSelectedRisk] = useState(null);
+  const [selectedRisk, setSelectedRisk] = useState(() => {
+    try {
+      const authData = localStorage.getItem('kfpl_client_auth');
+      if (authData) {
+        const parsed = JSON.parse(authData);
+        const c = parsed.client || parsed.user || {};
+        return c.riskProfile || null;
+      }
+    } catch (e) {}
+    return null;
+  });
   const [confirmed, setConfirmed] = useState(false);
+
+  useEffect(() => {
+    try {
+      const authData = localStorage.getItem('kfpl_client_auth');
+      if (authData) {
+        const parsed = JSON.parse(authData);
+        const c = parsed.client || parsed.user || {};
+        
+        const hasNom = !!(c.nomineeName || c.nominee?.name);
+        const hasRsk = !!c.riskProfile;
+        
+        if (hasNom && hasRsk) {
+          parsed.client.onboardingComplete = true;
+          localStorage.setItem('kfpl_client_auth', JSON.stringify(parsed));
+          navigate('/dashboard');
+        } else if (hasNom) {
+          setStep(2);
+        }
+      }
+    } catch (e) {
+      console.error(e);
+    }
+  }, [navigate]);
 
   const handleNext = () => {
     if (!nominee.name) return;
     setStep(2);
   };
 
-  const handleComplete = () => {
+  const handleComplete = async () => {
     if (!selectedRisk || !confirmed) return;
     
     // Save to localStorage
@@ -50,6 +96,27 @@ export default function OnboardingDetails() {
         console.error(e);
       }
     }
+
+    // Persist to backend database so it never resets
+    try {
+      await apiRequest('/api/client/profile', {
+        method: 'PATCH',
+        body: JSON.stringify({
+          nomineeName: nominee.name,
+          nomineeRelation: nominee.relation,
+          nomineePhone: nominee.contact,
+          nomineeEmail: nominee.email,
+          riskProfile: selectedRisk,
+          onboardingComplete: true
+        })
+      });
+      
+      // Clear client dashboard cache so it re-fetches fresh details from backend
+      localStorage.removeItem('kfpl_client_dashboard_cache');
+    } catch (apiErr) {
+      console.warn('Backend profile update failed, relying on local session:', apiErr);
+    }
+
     navigate('/dashboard');
   };
 

@@ -70,8 +70,18 @@ export default function ProjectSelection() {
   const modalIsBelowMin = applyModal ? (modalNumAmount < applyModal.minInvestment) : false;
 
   useEffect(() => {
+    // --- SWR Cache Initialization for Instant Load (0ms) ---
+    try {
+      const cacheData = localStorage.getItem('kfpl_client_opportunities_cache');
+      if (cacheData) {
+        setOpportunities(JSON.parse(cacheData));
+        setLoading(false);
+      }
+    } catch (e) {
+      console.warn('Failed to parse opportunities cache:', e);
+    }
+
     const fetchProjects = async () => {
-      setLoading(true);
       try {
         const data = await apiRequest('/api/client/projects');
         const raw = extractProjects(data);
@@ -104,11 +114,11 @@ export default function ProjectSelection() {
           };
         });
         setOpportunities(mapped);
+        localStorage.setItem('kfpl_client_opportunities_cache', JSON.stringify(mapped));
       } catch (err) {
         console.error('Failed to load selector projects, using mock:', err);
         // Map mockOpportunities with proper structure
         const mappedMock = mockOpportunities.map(opp => {
-          const segStyle = getSegmentStyle(opp.segment);
           return {
             ...opp,
             initials: SEGMENT_ABBR[opp.segment] || opp.name.slice(0, 2).toUpperCase()

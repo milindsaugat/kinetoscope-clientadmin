@@ -25,10 +25,27 @@ export default function Profile() {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
+    // --- SWR Cache Initialization for Instant Load (0ms) ---
+    try {
+      const cacheData = localStorage.getItem('kfpl_client_profile_cache');
+      if (cacheData) {
+        const parsed = JSON.parse(cacheData);
+        if (parsed.client) setClient(parsed.client);
+        if (parsed.clientEmail) setClientEmail(parsed.clientEmail);
+        setLoading(false);
+      }
+    } catch (e) {
+      console.warn('Failed to parse client profile cache:', e);
+    }
+
     const loadProfile = async () => {
       try {
-        const response = await apiRequest('/api/client/profile');
-        if (response) {
+        const [profileRes, advisorRes] = await Promise.all([
+          apiRequest('/api/client/profile').catch(() => null),
+          apiRequest('/api/client/wealth-advisor').catch(() => null)
+        ]);
+
+        if (profileRes) {
           const extractProfile = (res) => {
             if (!res) return null;
             if (res.profile) return res.profile;
@@ -56,7 +73,7 @@ export default function Profile() {
             }
             return 'KFPL-CL-1001';
           };
-          const rawProfile = extractProfile(response);
+          const rawProfile = extractProfile(profileRes);
           if (rawProfile) {
             const normalized = {
               ...rawProfile,
@@ -76,8 +93,23 @@ export default function Profile() {
                 email: rawProfile.nomineeEmail || rawProfile.nominee?.email || '',
               }
             };
+
+            if (advisorRes) {
+              const rawAdv = advisorRes.advisor || advisorRes.agent || advisorRes.data?.advisor || advisorRes.data || advisorRes;
+              if (rawAdv) {
+                normalized.agentName = rawAdv.fullName || rawAdv.name || normalized.agentName || 'Wealth Advisor';
+                normalized.agentId = rawAdv.agentCode || rawAdv.agentId || rawAdv._id || normalized.agentId || '';
+                normalized.advisorPhone = rawAdv.phone || rawAdv.mobile || rawAdv.phoneNumber || '';
+                normalized.advisorEmail = rawAdv.email || '';
+              }
+            }
+
             setClient(normalized);
             setClientEmail(normalized.email || '');
+            localStorage.setItem('kfpl_client_profile_cache', JSON.stringify({
+              client: normalized,
+              clientEmail: normalized.email || ''
+            }));
           }
         }
       } catch (err) {
@@ -602,10 +634,10 @@ export default function Profile() {
                 </div>
 
                 <div style={{ display: 'flex', gap: '8px', width: '100%', marginTop: '24px' }}>
-                  <a href={`tel:${client.phone || ''}`} className="kfpl-btn kfpl-btn--ghost kfpl-btn--sm" style={{ flex: 1, padding: '10px 0' }}>
+                  <a href={`tel:${client.advisorPhone || ''}`} className="kfpl-btn kfpl-btn--ghost kfpl-btn--sm" style={{ flex: 1, padding: '10px 0' }}>
                     📞 Call Advisor
                   </a>
-                  <a href="https://wa.me/919876543210" target="_blank" rel="noopener noreferrer" className="kfpl-btn kfpl-btn--primary kfpl-btn--sm" style={{ flex: 1, padding: '10px 0', background: '#25D366', borderColor: '#25D366' }}>
+                  <a href={`https://wa.me/${client.advisorPhone || '919876543210'}`} target="_blank" rel="noopener noreferrer" className="kfpl-btn kfpl-btn--primary kfpl-btn--sm" style={{ flex: 1, padding: '10px 0', background: '#25D366', borderColor: '#25D366' }}>
                     💬 WhatsApp
                   </a>
                 </div>

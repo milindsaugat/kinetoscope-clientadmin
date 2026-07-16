@@ -48,11 +48,13 @@ export default function DashboardHome() {
   const [investments, setInvestments] = useState([]);
   const [roiHistory, setRoiHistory] = useState([]);
   const [journey, setJourney] = useState({
-    step1: false,
-    step2: false,
-    step3: false,
-    step4: false,
-    step5: false,
+    accountCreated: true,
+    onboardingComplete: false,
+    kycSubmitted: false,
+    agreementSigned: false,
+    firstInvestment: false,
+    roiConfigured: false,
+    firstRoiReceived: false
   });
   const [projects, setProjects] = useState([]);
 
@@ -85,20 +87,70 @@ export default function DashboardHome() {
   const [historySegmentFilter, setHistorySegmentFilter] = useState('all');
 
   useEffect(() => {
-    const fetchDashboard = async () => {
-      try {
-        const response = await apiRequest('/api/client/dashboard');
-        if (response) {
-          const root = response.data || response;
-          const rawClient = root.profile || root.client || root.user || {};
-          
-          setClient(prev => ({
-            ...prev,
-            ...rawClient,
-            name: rawClient.fullName || rawClient.name || prev.name || 'Investor'
-          }));
+    // --- SWR Cache Initialization for Instant Load (0ms) ---
+    try {
+      const cacheData = localStorage.getItem('kfpl_client_dashboard_cache');
+      if (cacheData) {
+        const parsed = JSON.parse(cacheData);
+        if (parsed.client) setClient(parsed.client);
+        if (parsed.stats) setStats(parsed.stats);
+        if (parsed.investments) setInvestments(parsed.investments);
+        if (parsed.roiHistory) setRoiHistory(parsed.roiHistory);
+        if (parsed.journey) setJourney(parsed.journey);
+        if (parsed.projects) setProjects(parsed.projects);
+        if (parsed.statusHistory) setStatusHistory(parsed.statusHistory);
+        if (parsed.clientHistoryLogs) setClientHistoryLogs(parsed.clientHistoryLogs);
+      }
+    } catch (e) {
+      console.warn('Failed to parse client dashboard cache:', e);
+    }
 
-          // Calculate expected monthly ROI
+    const loadClientDashboardData = async () => {
+      try {
+        // Parallelized concurrent API queries
+        const [dashRes, projectsRes, historyRes, advisorRes] = await Promise.all([
+          apiRequest('/api/client/dashboard').catch(() => null),
+          apiRequest('/api/client/projects').catch(() => null),
+          apiRequest('/api/client/projects/updates/history').catch(() => null),
+          apiRequest('/api/client/wealth-advisor').catch(() => null)
+        ]);
+
+        let updatedClient = null;
+        let updatedStats = null;
+        let updatedInvestments = [];
+        let updatedRoiHistory = [];
+        let updatedJourney = null;
+        let updatedProjects = [];
+        let updatedStatusHistory = [];
+        let updatedHistoryLogs = [];
+
+        // 1. Process Dashboard Response
+        if (dashRes) {
+          const root = dashRes.data || dashRes;
+          const rawClient = root.profile || root.client || root.user || {};
+          const hasNominee = !!(rawClient.nomineeName || rawClient.nominee?.name);
+          const hasRisk = !!(rawClient.riskProfile);
+          const onboardingCompleteVal = rawClient.onboardingComplete || (hasNominee && hasRisk);
+          
+          updatedClient = {
+            ...client,
+            ...rawClient,
+            name: rawClient.fullName || rawClient.name || client.name || 'Investor',
+            onboardingComplete: onboardingCompleteVal
+          };
+
+          if (advisorRes) {
+            const rawAdv = advisorRes.advisor || advisorRes.agent || advisorRes.data?.advisor || advisorRes.data || advisorRes;
+            if (rawAdv) {
+              updatedClient.agentName = rawAdv.fullName || rawAdv.name || rawClient.agentName || 'Wealth Advisor';
+              updatedClient.agentId = rawAdv.agentCode || rawAdv.agentId || rawAdv._id || rawClient.agentId || '';
+              updatedClient.advisorPhone = rawAdv.phone || rawAdv.mobile || rawAdv.phoneNumber || '';
+              updatedClient.advisorEmail = rawAdv.email || '';
+            }
+          }
+
+          setClient(updatedClient);
+
           let monthlyRoiVal = 0;
           if (Array.isArray(root.investments)) {
             monthlyRoiVal = root.investments.reduce((sum, inv) => {
@@ -108,16 +160,17 @@ export default function DashboardHome() {
             }, 0);
           }
 
-          setStats({
+          updatedStats = {
             totalInvested: root.totalInvestment !== undefined ? root.totalInvestment : (root.stats?.totalInvested || 0),
             monthlyROI: monthlyRoiVal || root.stats?.monthlyROI || 0,
             roiRate: root.roiAverage !== undefined ? root.roiAverage : (root.stats?.roiRate || 0),
             perkTier: rawClient.tier || root.stats?.perkTier || 'Silver',
             nextROIDate: root.nextRoiDate || root.stats?.nextROIDate || '—',
-          });
+          };
+          setStats(updatedStats);
 
           if (root.investments) {
-            const normalizedList = root.investments.map(inv => ({
+            updatedInvestments = root.investments.map(inv => ({
               ...inv,
               amount: inv.investmentAmount || inv.amount || 0,
               roiAllocated: inv.roiPercentage || inv.roiAllocated || inv.roi || 0,
@@ -125,101 +178,117 @@ export default function DashboardHome() {
               date: inv.investmentDate || inv.date || inv.createdAt,
               contractPeriod: inv.durationMonths || inv.contractPeriod || 24
             }));
-            setInvestments(normalizedList);
+            setInvestments(updatedInvestments);
           }
           if (root.roiHistory) {
-            setRoiHistory(root.roiHistory);
+            updatedRoiHistory = root.roiHistory;
+            setRoiHistory(updatedRoiHistory);
           }
-          if (root.journey) {
-            setJourney(root.journey);
+          // Dynamically compute onboarding and journey steps in frontend
+          const isKycSubmitted = ['PENDING', 'VERIFIED', 'APPROVED'].includes(String(rawClient.kycStatus || rawClient.kyc || '').toUpperCase());
+          const isKycVerified = ['VERIFIED', 'APPROVED'].includes(String(rawClient.kycStatus || rawClient.kyc || '').toUpperCase());
+
+          const hasInvestments = updatedInvestments.length > 0 || (root.totalInvestment > 0);
+          const hasReceivedRoi = updatedRoiHistory.length > 0;
+
+          updatedJourney = {
+            accountCreated: true,
+            onboardingComplete: onboardingCompleteVal,
+            kycSubmitted: isKycSubmitted || isKycVerified,
+            agreementSigned: isKycVerified,
+            firstInvestment: hasInvestments,
+            roiConfigured: hasInvestments,
+            firstRoiReceived: hasReceivedRoi
+          };
+          setJourney(updatedJourney);
+        }
+
+        // 2. Process Projects Response
+        if (projectsRes) {
+          const raw = extractProjects(projectsRes);
+          const filteredRaw = raw.filter(p => p.name !== '__KFPL_DUMMY__');
+          updatedProjects = filteredRaw.map(p => ({
+            id: p._id || p.id,
+            name: p.name || '',
+            segment: p.segment || '',
+            status: p.status || 'Planning',
+            value: p.portfolioValue || p.value || '₹0 Cr',
+            milestone: p.milestoneProgress !== undefined ? p.milestoneProgress : (p.progress !== undefined ? p.progress : 0),
+            summary: p.summary || '',
+            risk: p.riskLevel || p.risk || 'Medium',
+            horizon: p.horizon || '',
+            roi: p.monthlyRoi || p.roi || '',
+            health: p.health || 'On Track',
+            bannerImg: p.bannerImage || p.bannerImg || '',
+            media: (p.mediaFiles || p.media || []).map((url, idx) => ({
+              id: url,
+              name: url.split('/').pop() || `File ${idx + 1}`,
+              type: url.match(/\.(jpeg|jpg|gif|png|webp)$/i) ? 'image/png' : 'application/pdf',
+              size: 0,
+              dataUrl: url,
+              uploadedAt: new Date().toISOString()
+            }))
+          }));
+          setProjects(updatedProjects);
+
+          updatedStatusHistory = updatedProjects.map((p, idx) => ({
+            id: p.id || idx,
+            type: 'project',
+            segment: p.segment,
+            project: p.name,
+            status: p.status,
+            progress: p.milestone,
+            note: p.summary || 'Project is under active development and tracking.',
+            date: p.health || 'On Track',
+            bannerImg: p.bannerImg,
+            media: p.media || []
+          }));
+          setStatusHistory(updatedStatusHistory);
+        }
+
+        // 3. Process History Response
+        if (historyRes) {
+          let list = [];
+          if (Array.isArray(historyRes)) {
+            list = historyRes;
+          } else if (historyRes.history && Array.isArray(historyRes.history)) {
+            list = historyRes.history;
+          } else if (historyRes.data && Array.isArray(historyRes.data)) {
+            list = historyRes.data;
+          } else if (historyRes.data?.history && Array.isArray(historyRes.data.history)) {
+            list = historyRes.data.history;
           }
+          updatedHistoryLogs = list.map(h => ({
+            id: h._id || h.id,
+            type: h.type || 'project',
+            segment: h.segment || '',
+            project: h.project || h.projectName || '',
+            status: h.status || '',
+            progress: h.progress || 0,
+            note: h.notes || h.note || '',
+            date: h.date || (h.createdAt ? new Date(h.createdAt).toISOString().split('T')[0] : '—'),
+          }));
+          setClientHistoryLogs(updatedHistoryLogs);
         }
+
+        // Save fresh data to SWR Cache
+        localStorage.setItem('kfpl_client_dashboard_cache', JSON.stringify({
+          client: updatedClient || client,
+          stats: updatedStats || stats,
+          investments: updatedInvestments,
+          roiHistory: updatedRoiHistory,
+          journey: updatedJourney || journey,
+          projects: updatedProjects,
+          statusHistory: updatedStatusHistory,
+          clientHistoryLogs: updatedHistoryLogs
+        }));
+
       } catch (err) {
-        console.warn('Failed to load client dashboard via API:', err);
+        console.error('Failed to load client dashboard:', err);
       }
     };
 
-    const fetchHistory = async () => {
-      try {
-        const data = await apiRequest('/api/client/projects/updates/history');
-        let list = [];
-        if (Array.isArray(data)) {
-          list = data;
-        } else if (data.history && Array.isArray(data.history)) {
-          list = data.history;
-        } else if (data.data && Array.isArray(data.data)) {
-          list = data.data;
-        } else if (data.data?.history && Array.isArray(data.data.history)) {
-          list = data.data.history;
-        }
-        const mappedHistory = list.map(h => ({
-          id: h._id || h.id,
-          type: h.type || 'project',
-          segment: h.segment || '',
-          project: h.project || h.projectName || '',
-          status: h.status || '',
-          progress: h.progress || 0,
-          note: h.notes || h.note || '',
-          date: h.date || (h.createdAt ? new Date(h.createdAt).toISOString().split('T')[0] : '—'),
-        }));
-        setClientHistoryLogs(mappedHistory);
-      } catch (err) {
-        console.warn('Could not fetch client project history logs:', err);
-      }
-    };
-
-    const fetchProjects = async () => {
-      try {
-        const data = await apiRequest('/api/client/projects');
-        const raw = extractProjects(data);
-        console.log('CLIENT PROJECTS RAW:', raw);
-        const filteredRaw = raw.filter(p => p.name !== '__KFPL_DUMMY__');
-        const mapped = filteredRaw.map(p => ({
-          id: p._id || p.id,
-          name: p.name || '',
-          segment: p.segment || '',
-          status: p.status || 'Planning',
-          value: p.portfolioValue || p.value || '₹0 Cr',
-          milestone: p.milestoneProgress !== undefined ? p.milestoneProgress : (p.progress !== undefined ? p.progress : 0),
-          summary: p.summary || '',
-          risk: p.riskLevel || p.risk || 'Medium',
-          horizon: p.horizon || '',
-          roi: p.monthlyRoi || p.roi || '',
-          health: p.health || 'On Track',
-          bannerImg: p.bannerImage || p.bannerImg || '',
-          media: (p.mediaFiles || p.media || []).map((url, idx) => ({
-            id: url,
-            name: url.split('/').pop() || `File ${idx + 1}`,
-            type: url.match(/\.(jpeg|jpg|gif|png|webp)$/i) ? 'image/png' : 'application/pdf',
-            size: 0,
-            dataUrl: url,
-            uploadedAt: new Date().toISOString()
-          }))
-        }));
-        console.log('CLIENT PROJECTS MAPPED:', mapped);
-        setProjects(mapped);
-
-        const liveUpdates = mapped.map((p, idx) => ({
-          id: p.id || idx,
-          type: 'project',
-          segment: p.segment,
-          project: p.name,
-          status: p.status,
-          progress: p.milestone,
-          note: p.summary || 'Project is under active development and tracking.',
-          date: p.health || 'On Track',
-          bannerImg: p.bannerImg,
-          media: p.media || []
-        }));
-        setStatusHistory(liveUpdates);
-      } catch (err) {
-        console.warn('Failed to load dashboard projects via API:', err);
-      }
-    };
-
-    fetchDashboard();
-    fetchProjects();
-    fetchHistory();
+    loadClientDashboardData();
   }, []);
 
   const SEGMENT_COLORS = {
@@ -252,20 +321,51 @@ export default function DashboardHome() {
   const progress = Math.round((completedSteps / JOURNEY_STEPS.length) * 100);
   const fillPercent = completedSteps > 0 ? ((completedSteps - 1) / (JOURNEY_STEPS.length - 1)) * 100 : 0;
 
-  const showOnboardingBanner = !client.onboardingComplete;
+  const showOnboardingBanner = !client.onboardingComplete && !(client.nomineeName || client.nominee?.name) && !(client.riskProfile);
 
-  // Prepare Donut Chart data dynamically
+  // Prepare Donut Chart data dynamically (aggregated by segment)
   const totalInvestedAmount = investments.reduce((sum, inv) => sum + inv.amount, 0);
-  const segmentAllocation = investments.map(inv => ({
-    segment: inv.segment,
-    value: totalInvestedAmount > 0 ? Math.round((inv.amount / totalInvestedAmount) * 100) : 0
+  const segmentSums = {};
+  investments.forEach(inv => {
+    segmentSums[inv.segment] = (segmentSums[inv.segment] || 0) + inv.amount;
+  });
+  const segmentAllocation = Object.keys(segmentSums).map(seg => ({
+    segment: seg,
+    value: totalInvestedAmount > 0 ? Math.round((segmentSums[seg] / totalInvestedAmount) * 100) : 0
   }));
 
   // Prepare Line Chart data dynamically
-  const lineChartData = roiHistory.map(roi => ({
-    month: roi.month ? roi.month.split(' ')[0] : '—',
-    amount: roi.received > 0 ? roi.received : roi.expected
-  }));
+  let lineChartData = [];
+  if (roiHistory && roiHistory.length > 0) {
+    lineChartData = roiHistory.map(roi => {
+      const rawMonth = roi.payoutMonth || roi.month || '';
+      const cleanMonth = rawMonth ? rawMonth.split(' ')[0] : '—';
+      const amountVal = roi.amount !== undefined ? roi.amount : (roi.received || roi.expected || 0);
+      return {
+        month: cleanMonth,
+        amount: Number(amountVal)
+      };
+    });
+  } else if (investments && investments.length > 0) {
+    // Generate expected payout projection based on active investments so the graph is never blank
+    const monthlyExpected = investments.reduce((sum, inv) => {
+      const amt = inv.amount || 0;
+      const roi = inv.roi || inv.roiAllocated || 0;
+      return sum + (amt * (roi / 100));
+    }, 0);
+
+    const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+    const currentMonthIdx = new Date().getMonth();
+    
+    // Generate 6 months of projection
+    lineChartData = Array.from({ length: 6 }, (_, i) => {
+      const idx = (currentMonthIdx - 5 + i + 12) % 12;
+      return {
+        month: months[idx],
+        amount: monthlyExpected
+      };
+    });
+  }
 
   const now = new Date();
   const dateStr = now.toLocaleDateString('en-IN', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' });
@@ -1066,10 +1166,10 @@ export default function DashboardHome() {
                 <p className="text-muted text-sm" style={{ marginTop: '2px' }}>ID: {client.agentId || 'AGT-007'} • Senior Wealth Manager</p>
               </div>
               <div style={{ display: 'flex', gap: '8px', width: '100%', marginTop: '8px' }}>
-                <a href={`tel:${client.phone || ''}`} className="kfpl-btn kfpl-btn--ghost kfpl-btn--sm" style={{ flex: 1 }}>
+                <a href={`tel:${client.advisorPhone || ''}`} className="kfpl-btn kfpl-btn--ghost kfpl-btn--sm" style={{ flex: 1 }}>
                   📞 Call
                 </a>
-                <a href="https://wa.me/919876543210" target="_blank" rel="noopener noreferrer" className="kfpl-btn kfpl-btn--primary kfpl-btn--sm" style={{ flex: 1, background: '#25D366', borderColor: '#25D366' }}>
+                <a href={`https://wa.me/${client.advisorPhone || '919876543210'}`} target="_blank" rel="noopener noreferrer" className="kfpl-btn kfpl-btn--primary kfpl-btn--sm" style={{ flex: 1, background: '#25D366', borderColor: '#25D366' }}>
                   💬 WhatsApp
                 </a>
               </div>
