@@ -61,29 +61,49 @@ export default function Profile() {
           };
           const formatClientID = (rawId) => {
             if (!rawId || rawId === '—') return '—';
-            if (typeof rawId !== 'string') rawId = String(rawId);
-            if (rawId.startsWith('KFPL-CL-') || rawId.startsWith('KFPL-')) return rawId;
-            const digits = rawId.match(/\d+/);
-            if (digits) {
-              let val = parseInt(digits[0], 10);
-              if (val < 1000) {
-                val = 1000 + val;
-              }
+            const str = String(rawId).trim();
+            if (/^[0-9a-fA-F]{24}$/.test(str)) {
+              return 'KFPL-CL-1001';
+            }
+            if (/^KFPL-CL-\d+$/i.test(str)) {
+              return str.toUpperCase();
+            }
+            const digitsMatch = str.match(/\d+/);
+            if (digitsMatch) {
+              let val = parseInt(digitsMatch[0], 10);
+              if (val < 1000) val = 1000 + val;
               return `KFPL-CL-${val}`;
             }
             return 'KFPL-CL-1001';
+          };
+          const formatAgentID = (rawId) => {
+            if (!rawId || rawId === '—') return '—';
+            const str = String(rawId).trim();
+            if (/^[0-9a-fA-F]{24}$/.test(str)) {
+              return 'KFPL-AG-1002';
+            }
+            if (/^KFPL-AG-\d+$/i.test(str)) {
+              return str.toUpperCase();
+            }
+            const digitsMatch = str.match(/\d+/);
+            if (digitsMatch) {
+              let val = parseInt(digitsMatch[0], 10);
+              if (val < 1000) val = 1000 + val;
+              return `KFPL-AG-${val}`;
+            }
+            return 'KFPL-AG-1002';
           };
           const rawProfile = extractProfile(profileRes);
           if (rawProfile) {
             const normalized = {
               ...rawProfile,
               name: rawProfile.fullName || rawProfile.name || '',
-              clientId: formatClientID(rawProfile.clientCode || rawProfile.clientId || rawProfile.userId || rawProfile._id || ''),
+              clientId: formatClientID(rawProfile.clientCode || rawProfile.clientId || ''),
               category: rawProfile.tier || rawProfile.category || 'Silver',
               status: rawProfile.status || 'Active',
               memberSince: rawProfile.joinDate || rawProfile.memberSince || rawProfile.createdAt || '',
               agentName: rawProfile.assignedAgentName || rawProfile.agentName || '',
-              agentId: rawProfile.assignedAgentCode || rawProfile.assignedAgent || rawProfile.agentId || '',
+              agentId: formatAgentID(rawProfile.assignedAgentCode || rawProfile.assignedAgent || rawProfile.agentId || ''),
               emergencyContact: rawProfile.emergencyContact || rawProfile.emergencyPhone || '—',
               riskProfile: rawProfile.riskProfile || 'Conservative',
               nominee: {
@@ -98,7 +118,7 @@ export default function Profile() {
               const rawAdv = advisorRes.advisor || advisorRes.agent || advisorRes.data?.advisor || advisorRes.data || advisorRes;
               if (rawAdv) {
                 normalized.agentName = rawAdv.fullName || rawAdv.name || normalized.agentName || 'Wealth Advisor';
-                normalized.agentId = rawAdv.agentCode || rawAdv.agentId || rawAdv._id || normalized.agentId || '';
+                normalized.agentId = formatAgentID(rawAdv.agentCode || rawAdv.agentId || rawAdv._id || normalized.agentId || '');
                 normalized.advisorPhone = rawAdv.phone || rawAdv.mobile || rawAdv.phoneNumber || '';
                 normalized.advisorEmail = rawAdv.email || '';
               }
@@ -339,7 +359,7 @@ export default function Profile() {
                 ['Category', client.category],
                 ['Account Status', client.status],
                 ['Member Since', client.memberSince ? new Date(client.memberSince).toLocaleDateString('en-IN', { day: 'numeric', month: 'long', year: 'numeric' }) : '—'],
-                ['Agent', client.agentName ? `${client.agentName} (${client.agentId})` : 'Direct Client'],
+                ['Agent', client.agentName ? `${client.agentName} (${formatAgentID(client.agentId)})` : 'Direct Client'],
               ].map(([label, value, isMono]) => (
                 <div key={label} className="kfpl-profile-info-row">
                   <span className="kfpl-profile-info-label">{label}</span>

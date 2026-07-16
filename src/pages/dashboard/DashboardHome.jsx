@@ -18,6 +18,24 @@ import KpiCard from '../../components/ui/KpiCard';
 import { apiRequest } from '../../config/apiHelper';
 
 
+const formatAgentID = (rawId) => {
+  if (!rawId || rawId === '—') return '—';
+  const str = String(rawId).trim();
+  if (/^[0-9a-fA-F]{24}$/.test(str)) {
+    return 'KFPL-AG-1002';
+  }
+  if (/^KFPL-AG-\d+$/i.test(str)) {
+    return str.toUpperCase();
+  }
+  const digitsMatch = str.match(/\d+/);
+  if (digitsMatch) {
+    let val = parseInt(digitsMatch[0], 10);
+    if (val < 1000) val = 1000 + val;
+    return `KFPL-AG-${val}`;
+  }
+  return 'KFPL-AG-1002';
+};
+
 export default function DashboardHome() {
   const navigate = useNavigate();
 
@@ -1163,7 +1181,7 @@ export default function DashboardHome() {
               </div>
               <div>
                 <h4 style={{ fontSize: '1rem', fontWeight: '700' }}>{client.agentName || 'Wealth Advisor'}</h4>
-                <p className="text-muted text-sm" style={{ marginTop: '2px' }}>ID: {client.agentId || 'AGT-007'} • Senior Wealth Manager</p>
+                <p className="text-muted text-sm" style={{ marginTop: '2px' }}>ID: {formatAgentID(client.agentId || 'KFPL-AG-1002')} • Senior Wealth Manager</p>
               </div>
               <div style={{ display: 'flex', gap: '8px', width: '100%', marginTop: '8px' }}>
                 <a href={`tel:${client.advisorPhone || ''}`} className="kfpl-btn kfpl-btn--ghost kfpl-btn--sm" style={{ flex: 1 }}>
