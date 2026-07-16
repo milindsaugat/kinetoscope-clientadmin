@@ -84,7 +84,7 @@ const navSections = [
     items: [
       { path: '/investment', icon: 'investment', label: 'Your Investment' },
       { path: '/complete-transaction-details', icon: 'investment', label: 'Complete Transaction Details' },
-      { path: '/portfolio', icon: 'portfolio', label: 'KFPL Portfolio' },
+      { path: '/portfolio', icon: 'portfolio', label: 'Kinetoscope Portfolio' },
       { path: '/projects', icon: 'projects', label: 'Project Selection' },
     ],
   },

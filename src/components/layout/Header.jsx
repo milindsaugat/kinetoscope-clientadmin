@@ -11,7 +11,7 @@ const routeConfig = {
   '/dashboard': { title: 'Dashboard', breadcrumb: 'Overview' },
   '/investment': { title: 'Your Investment', breadcrumb: 'Investments' },
   '/complete-transaction-details': { title: 'Complete Transaction Details', breadcrumb: 'Investments' },
-  '/portfolio': { title: 'KFPL Portfolio', breadcrumb: 'Investments' },
+  '/portfolio': { title: 'Kinetoscope Portfolio', breadcrumb: 'Investments' },
   '/projects': { title: 'Project Selection', breadcrumb: 'Investments' },
   '/perks': { title: 'Perks & Recognition', breadcrumb: 'Account' },
   '/payments': { title: 'Payments', breadcrumb: 'Account' },

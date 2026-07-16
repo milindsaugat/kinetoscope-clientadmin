@@ -8,12 +8,6 @@ import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { JOURNEY_STEPS, PERK_TIERS } from '../../constants';
 import {
-  mockJourney,
-  mockStats as fallbackStats,
-  mockClient as fallbackClient,
-  mockInvestments as fallbackInvestments,
-  mockROIHistory as fallbackROIHistory,
-  mockPortfolioProjects,
   formatCurrency,
   formatNumber
 } from '../../data/mockData';

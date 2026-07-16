@@ -230,7 +230,7 @@ export default function Portfolio() {
   const completedProjects = enrichedProjects.filter(project => project.milestone >= 100).length;
 
   const summaryCards = [
-    { label: 'Portfolio Value', value: `\u20B9${totalValue.toFixed(1)} Cr`, meta: 'Across active KFPL assets' },
+    { label: 'Portfolio Value', value: `\u20B9${totalValue.toFixed(1)} Cr`, meta: 'Across active Kinetoscope assets' },
     { label: 'Live Projects', value: enrichedProjects.length, meta: `${activeProjects} currently in motion` },
     { label: 'Avg. Milestone', value: `${averageProgress}%`, meta: 'Weighted by active project count' },
     { label: 'Completed', value: completedProjects, meta: 'Released or fully delivered' },
@@ -428,7 +428,7 @@ export default function Portfolio() {
       <section className="kfpl-portfolio-hero">
         <div className="kfpl-portfolio-hero-copy">
           <span className="kfpl-portfolio-eyebrow">Investor portfolio</span>
-          <h1 className="kfpl-page-title">KFPL Portfolio</h1>
+          <h1 className="kfpl-page-title">Kinetoscope Portfolio</h1>
           <p className="kfpl-page-subtitle">
             Explore project health, segment exposure, milestone progress, and current operational updates.
           </p>
