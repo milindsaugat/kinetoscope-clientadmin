@@ -6275,4 +6275,21 @@
   }
 }
 
+/* Rollout Animations */
+@keyframes rolloutIn {
+  0% {
+    opacity: 0;
+    transform: translateY(24px) scale(0.985);
+  }
+  100% {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+.animate-rollout {
+  opacity: 0;
+  animation: rolloutIn 0.75s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+
 /* ============ END: pages.css ============ */

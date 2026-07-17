@@ -62,22 +62,27 @@ export default function MediaDetail() {
       let art = null;
       let feed = [];
 
-      // 1. Fetch specific detail
+      // Fetch specific detail and feed list concurrently
       try {
-        const detailRes = await apiRequest(`/api/client/news/${id}`);
-        console.log('Client Article Detail API Response:', detailRes);
-        art = detailRes.article || detailRes.data || detailRes;
-      } catch (err) {
-        console.warn('Failed to fetch specific article detail from news API, trying articles API next:', err);
-      }
+        const [detailRes, feedRes] = await Promise.all([
+          apiRequest(`/api/client/news/${id}`).catch((err) => {
+            console.warn('Failed to fetch specific article detail:', err);
+            return null;
+          }),
+          apiRequest('/api/client/articles').catch((err) => {
+            console.error('Failed to fetch articles list:', err);
+            return null;
+          })
+        ]);
 
-      // 2. Fetch list
-      try {
-        const feedRes = await apiRequest('/api/client/articles');
-        console.log('Client Articles List API Response:', feedRes);
-        feed = extractArticles(feedRes);
+        if (detailRes) {
+          art = detailRes.article || detailRes.data || detailRes;
+        }
+        if (feedRes) {
+          feed = extractArticles(feedRes);
+        }
       } catch (err) {
-        console.error('Failed to fetch articles list:', err);
+        console.error('Unexpected error in concurrent loading:', err);
       }
 
       // 3. Fallback: If detail API failed or returned nothing, find it in the feed list

@@ -12,6 +12,42 @@ import { RISK_PROFILES, NOMINEE_RELATIONS } from '../../constants';
 import { useToast } from '../../components/ui/Toast';
 import { apiRequest } from '../../config/apiHelper';
 
+const formatClientID = (rawId) => {
+  if (!rawId || rawId === '—') return '—';
+  const str = String(rawId).trim();
+  if (/^[0-9a-fA-F]{24}$/.test(str)) {
+    return 'KFPL-CL-1001';
+  }
+  if (/^KFPL-CL-\d+$/i.test(str)) {
+    return str.toUpperCase();
+  }
+  const digitsMatch = str.match(/\d+/);
+  if (digitsMatch) {
+    let val = parseInt(digitsMatch[0], 10);
+    if (val < 1000) val = 1000 + val;
+    return `KFPL-CL-${val}`;
+  }
+  return 'KFPL-CL-1001';
+};
+
+const formatAgentID = (rawId) => {
+  if (!rawId || rawId === '—' || rawId === '-') return 'KFPL-AG-1002';
+  const str = String(rawId).trim();
+  if (/^[0-9a-fA-F]{24}$/.test(str)) {
+    return 'KFPL-AG-1002';
+  }
+  if (/^KFPL-AG-\d+$/i.test(str)) {
+    return str.toUpperCase();
+  }
+  const digitsMatch = str.match(/\d+/);
+  if (digitsMatch) {
+    let val = parseInt(digitsMatch[0], 10);
+    if (val < 1000) val = 1000 + val;
+    return `KFPL-AG-${val}`;
+  }
+  return 'KFPL-AG-1002';
+};
+
 export default function Profile() {
   const navigate = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
@@ -45,55 +81,33 @@ export default function Profile() {
           apiRequest('/api/client/wealth-advisor').catch(() => null)
         ]);
 
-        if (profileRes) {
-          const extractProfile = (res) => {
-            if (!res) return null;
-            if (res.profile) return res.profile;
-            if (res.client) return res.client;
-            if (res.user) return res.user;
-            if (res.data) {
-              if (res.data.profile) return res.data.profile;
-              if (res.data.client) return res.data.client;
-              if (res.data.user) return res.data.user;
-              return res.data;
+        const getLoggedInClient = () => {
+          try {
+            const authData = localStorage.getItem('kfpl_client_auth');
+            if (authData) {
+              const parsed = JSON.parse(authData);
+              if (parsed.client) return parsed.client;
             }
-            return res;
-          };
-          const formatClientID = (rawId) => {
-            if (!rawId || rawId === '—') return '—';
-            const str = String(rawId).trim();
-            if (/^[0-9a-fA-F]{24}$/.test(str)) {
-              return 'KFPL-CL-1001';
-            }
-            if (/^KFPL-CL-\d+$/i.test(str)) {
-              return str.toUpperCase();
-            }
-            const digitsMatch = str.match(/\d+/);
-            if (digitsMatch) {
-              let val = parseInt(digitsMatch[0], 10);
-              if (val < 1000) val = 1000 + val;
-              return `KFPL-CL-${val}`;
-            }
-            return 'KFPL-CL-1001';
-          };
-          const formatAgentID = (rawId) => {
-            if (!rawId || rawId === '—') return '—';
-            const str = String(rawId).trim();
-            if (/^[0-9a-fA-F]{24}$/.test(str)) {
-              return 'KFPL-AG-1002';
-            }
-            if (/^KFPL-AG-\d+$/i.test(str)) {
-              return str.toUpperCase();
-            }
-            const digitsMatch = str.match(/\d+/);
-            if (digitsMatch) {
-              let val = parseInt(digitsMatch[0], 10);
-              if (val < 1000) val = 1000 + val;
-              return `KFPL-AG-${val}`;
-            }
-            return 'KFPL-AG-1002';
-          };
-          const rawProfile = extractProfile(profileRes);
+          } catch (e) {}
+          return null;
+        };
+
+        const extractProfile = (res) => {
+          if (!res) return null;
+          if (res.profile) return res.profile;
+          if (res.client) return res.client;
+          if (res.user) return res.user;
+          if (res.data) {
+            if (res.data.profile) return res.data.profile;
+            if (res.data.client) return res.data.client;
+            if (res.data.user) return res.data.user;
+            return res.data;
+          }
+          return res;
+        };
+
+        const rawProfile = extractProfile(profileRes) || getLoggedInClient();
+        if (rawProfile) {
           if (rawProfile) {
             const normalized = {
               ...rawProfile,
@@ -611,25 +625,11 @@ export default function Profile() {
               </a>
             </div>
 
-            {/* Manager Info panel & FAQs */}
-            <div className="kfpl-profile-grid">
-
-              {/* FAQ Section */}
-              <div className="kfpl-card">
-                <h3 style={{ marginBottom: '20px', paddingBottom: '12px', borderBottom: '2px solid var(--color-gold)' }}>Frequently Asked Questions</h3>
-                {mockFAQs.map((faq, i) => (
-                  <div key={i} className="kfpl-faq-item">
-                    <div className={`kfpl-faq-question ${openFaq === i ? 'open' : ''}`} onClick={() => setOpenFaq(openFaq === i ? null : i)}>
-                      {faq.q}
-                      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><polyline points="6 9 12 15 18 9" /></svg>
-                    </div>
-                    {openFaq === i && <div className="kfpl-faq-answer">{faq.a}</div>}
-                  </div>
-                ))}
-              </div>
+            {/* Manager Info panel */}
+            <div style={{ display: 'flex', justifyContent: 'center', marginTop: '10px' }}>
 
               {/* Wealth Advisor Advisor Widget */}
-              <div className="kfpl-card" style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', textAlign: 'center', padding: '32px 24px', justifyContent: 'center' }}>
+              <div className="kfpl-card" style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', textAlign: 'center', padding: '32px 24px', justifyContent: 'center', maxWidth: '480px', width: '100%' }}>
                 <div style={{
                   width: '72px',
                   height: '72px',
