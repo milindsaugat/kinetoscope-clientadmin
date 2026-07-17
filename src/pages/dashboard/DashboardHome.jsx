@@ -126,11 +126,12 @@ export default function DashboardHome() {
     const loadClientDashboardData = async () => {
       try {
         // Parallelized concurrent API queries
-        const [dashRes, projectsRes, historyRes, advisorRes] = await Promise.all([
+        const [dashRes, projectsRes, historyRes, advisorRes, txRes] = await Promise.all([
           apiRequest('/api/client/dashboard').catch(() => null),
           apiRequest('/api/client/projects').catch(() => null),
           apiRequest('/api/client/projects/updates/history').catch(() => null),
-          apiRequest('/api/client/wealth-advisor').catch(() => null)
+          apiRequest('/api/client/wealth-advisor').catch(() => null),
+          apiRequest('/api/client/transactions').catch(() => null)
         ]);
 
         let updatedClient = null;
@@ -216,9 +217,8 @@ export default function DashboardHome() {
           const onboardingCompleteVal = rawClient.onboardingComplete || (hasNominee && hasRisk);
           
           updatedClient = {
-            ...client,
             ...rawClient,
-            name: rawClient.fullName || rawClient.name || client.name || 'Investor',
+            name: rawClient.fullName || rawClient.name || 'Investor',
             onboardingComplete: onboardingCompleteVal
           };
 
@@ -250,8 +250,26 @@ export default function DashboardHome() {
             }, 0);
           }
 
+          let transactionsList = [];
+          if (txRes) {
+            const rootTx = txRes.data || txRes;
+            if (Array.isArray(rootTx.transactions)) {
+              transactionsList = rootTx.transactions;
+            } else if (Array.isArray(rootTx)) {
+              transactionsList = rootTx;
+            } else if (Array.isArray(txRes)) {
+              transactionsList = txRes;
+            }
+          }
+          const approvedDepositsSum = transactionsList
+            .filter(t => t.type === 'deposit' && String(t.status || '').toLowerCase() === 'approved')
+            .reduce((sum, t) => sum + Number(t.amount || 0), 0);
+
+          const backendTotal = root.totalInvestment !== undefined ? root.totalInvestment : (root.stats?.totalInvested || 0);
+          const finalTotalInvested = Math.max(approvedDepositsSum, Number(backendTotal || 0));
+
           updatedStats = {
-            totalInvested: root.totalInvestment !== undefined ? root.totalInvestment : (root.stats?.totalInvested || 0),
+            totalInvested: finalTotalInvested,
             monthlyROI: monthlyRoiVal || root.stats?.monthlyROI || 0,
             roiRate: finalRoiRate || root.roiAverage || (root.stats?.roiRate || 0),
             perkTier: rawClient.tier || root.stats?.perkTier || 'Silver',
@@ -423,6 +441,9 @@ export default function DashboardHome() {
     };
 
     loadClientDashboardData();
+
+    const pollInterval = setInterval(loadClientDashboardData, 15000);
+    return () => clearInterval(pollInterval);
   }, []);
 
   const SEGMENT_COLORS = {

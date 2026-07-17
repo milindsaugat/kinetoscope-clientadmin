@@ -324,6 +324,7 @@ export default function InvestmentOverview() {
   const [totalDividends, setTotalDividends] = useState(0);
   const [hoveredSegment, setHoveredSegment] = useState(null);
   const [tooltipPos, setTooltipPos] = useState({ x: 0, y: 0 });
+  const [approvedDepositsTotal, setApprovedDepositsTotal] = useState(0);
 
   useEffect(() => {
     // --- SWR Cache Initialization for Instant Load ---
@@ -335,6 +336,7 @@ export default function InvestmentOverview() {
         if (parsed.roiHistory) setRoiHistory(parsed.roiHistory);
         if (parsed.clientDividends) setClientDividends(parsed.clientDividends);
         if (parsed.totalDividends) setTotalDividends(parsed.totalDividends);
+        if (parsed.approvedDepositsTotal) setApprovedDepositsTotal(parsed.approvedDepositsTotal);
         if (parsed.client) setClient(parsed.client);
       }
     } catch (e) {
@@ -344,12 +346,13 @@ export default function InvestmentOverview() {
     const loadDashboardData = async () => {
       try {
         // Fetch all data concurrently!
-        const [invRes, dashRes, divListRes, statsRes, projectsRes] = await Promise.all([
+        const [invRes, dashRes, divListRes, statsRes, projectsRes, txRes] = await Promise.all([
           apiRequest('/api/client/investments').catch(() => null),
           apiRequest('/api/client/dashboard').catch(() => null),
           apiRequest('/api/client/dividends').catch(() => null),
-          apiRequest('/api/client/dividends/stats').catch(() => null),
-          apiRequest('/api/client/projects').catch(() => null)
+          apiRequest('/api/client/stats').catch(() => null),
+          apiRequest('/api/client/projects').catch(() => null),
+          apiRequest('/api/client/transactions').catch(() => null)
         ]);
 
         let activeInvestments = [];
@@ -586,12 +589,30 @@ export default function InvestmentOverview() {
           setTotalDividends(freshTotalDividends);
         }
 
+        // 4. Compute approved deposits total
+        let approvedDepositsTotal = 0;
+        if (txRes) {
+          const rootTx = txRes.data || txRes;
+          const txList = Array.isArray(rootTx.transactions)
+            ? rootTx.transactions
+            : (Array.isArray(rootTx) ? rootTx : []);
+          approvedDepositsTotal = txList
+            .filter(t => t.type === 'deposit' && String(t.status || '').toLowerCase() === 'approved')
+            .reduce((sum, t) => sum + Number(t.amount || 0), 0);
+        }
+
+        // Compute the final total: max of segment sum vs approved deposits
+        const segmentTotal = activeInvestments.reduce((sum, inv) => sum + (inv.amount || 0), 0);
+        const finalTotalInvested = Math.max(approvedDepositsTotal, segmentTotal);
+        setApprovedDepositsTotal(finalTotalInvested);
+
         // Cache results
         localStorage.setItem('kfpl_client_investment_overview_cache', JSON.stringify({
           investments: activeInvestments,
           roiHistory: freshRoiHistory,
           clientDividends: freshClientDividends,
           totalDividends: freshTotalDividends,
+          approvedDepositsTotal: finalTotalInvested,
           client: updatedClient
         }));
 
@@ -624,7 +645,8 @@ export default function InvestmentOverview() {
     return new Date(date).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' });
   };
 
-  const total = investments.reduce((sum, investment) => sum + investment.amount, 0);
+  const segmentsSum = investments.reduce((sum, investment) => sum + investment.amount, 0);
+  const total = Math.max(approvedDepositsTotal, segmentsSum);
   const monthlyReturn = Math.round((calcPrincipal * calcRate) / 100);
   const annualReturn = Math.round(monthlyReturn * 12);
   const weightedROI = total
