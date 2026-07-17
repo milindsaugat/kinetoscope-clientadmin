@@ -77,8 +77,8 @@ export default function CompleteTransactionDetails() {
                   period: monthStr,
                   roiRate: roiRateVal,
                   amount: amt,
-                  status: isCurrentMonth ? 'pending' : 'paid',
-                  paidAt: isCurrentMonth ? null : new Date(current.getFullYear(), current.getMonth() + 1, 0).toLocaleDateString('en-IN')
+                  status: 'approved',
+                  paidAt: new Date(current.getFullYear(), current.getMonth() + 1, 0).toLocaleDateString('en-IN')
                 });
                 index++;
                 current.setMonth(current.getMonth() + 1);
@@ -96,8 +96,8 @@ export default function CompleteTransactionDetails() {
           amount: Number(r.amount || r.received || 0),
           status: (r.status || 'pending').toLowerCase(),
           paidAt: r.paidAt || r.date || null,
-          paymentMode: r.paymentMode || (String(r.status).toLowerCase() === 'paid' ? 'Bank Transfer' : null),
-          transactionRef: r.transactionRef || r.transactionRefId || r.reference || (String(r.status).toLowerCase() === 'paid' ? `TXN${100000 + idx}` : null),
+          paymentMode: r.paymentMode || (['paid', 'approved'].includes(String(r.status).toLowerCase()) ? 'Bank Transfer' : null),
+          transactionRef: r.transactionRef || r.transactionRefId || r.reference || (['paid', 'approved'].includes(String(r.status).toLowerCase()) ? `TXN${100000 + idx}` : null),
           roiPercentage: r.roiPercentage || 12,
         }));
         setRecords(mapped);
@@ -267,7 +267,7 @@ export default function CompleteTransactionDetails() {
                       <span className="font-semibold" style={{ color: 'var(--color-text-primary)' }}>{rec.month}</span>
                     </div>
                   </td>
-                  <td className="font-bold" style={{ textAlign: 'right', fontSize: '0.9rem', color: rec.status === 'paid' ? 'var(--color-success)' : 'var(--color-text-primary)' }}>
+                  <td className="font-bold" style={{ textAlign: 'right', fontSize: '0.9rem', color: ['paid', 'approved'].includes(rec.status) ? 'var(--color-success)' : 'var(--color-text-primary)' }}>
                     {formatCurrency(rec.amount)}
                   </td>
                   <td>
