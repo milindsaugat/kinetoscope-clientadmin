@@ -7,10 +7,7 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { JOURNEY_STEPS, PERK_TIERS } from '../../constants';
-import {
-  formatCurrency,
-  formatNumber
-} from '../../data/mockData';
+import { formatCurrency, formatNumber } from '../../utils/formatters';
 import DonutChart from '../../components/charts/DonutChart';
 import LineChart from '../../components/charts/LineChart';
 import Modal from '../../components/ui/Modal';
@@ -21,19 +18,14 @@ import { apiRequest } from '../../config/apiHelper';
 const formatAgentID = (rawId) => {
   if (!rawId || rawId === '—') return '—';
   const str = String(rawId).trim();
-  if (/^[0-9a-fA-F]{24}$/.test(str)) {
-    return 'KFPL-AG-1002';
-  }
-  if (/^KFPL-AG-\d+$/i.test(str)) {
-    return str.toUpperCase();
-  }
-  const digitsMatch = str.match(/\d+/);
-  if (digitsMatch) {
-    let val = parseInt(digitsMatch[0], 10);
-    if (val < 1000) val = 1000 + val;
+  if (str.toUpperCase().startsWith('KFPL-AG-')) return str.toUpperCase();
+  const digits = str.match(/\d+/);
+  if (digits) {
+    let val = parseInt(digits[0], 10);
+    if (val < 1000) val += 1000;
     return `KFPL-AG-${val}`;
   }
-  return 'KFPL-AG-1002';
+  return 'KFPL-AG-1001';
 };
 
 export default function DashboardHome() {
@@ -234,12 +226,11 @@ export default function DashboardHome() {
 
           setClient(updatedClient);
 
-          const isKrishna = (updatedClient && ((updatedClient.name || '').toLowerCase().includes('krishna') || 
-                                               (updatedClient.clientId || '').includes('1002') ||
-                                               (updatedClient.email || '').toLowerCase().includes('krishna'))) ||
-                            (loggedClient && (loggedClient.name || '').toLowerCase().includes('krishna'));
-          const clientRoiRate = isKrishna ? 3.1 : (updatedClient ? (updatedClient.roiPercent || updatedClient.roiPercentage || updatedClient.monthlyRoi || updatedClient.roi || null) : null);
-          const finalRoiRate = clientRoiRate || 3.1;
+          // Use actual ROI rate from backend profile — no hardcoded fallback
+          const clientRoiRate = updatedClient
+            ? (updatedClient.roiPercent ?? updatedClient.roiPercentage ?? updatedClient.monthlyRoi ?? updatedClient.roi ?? null)
+            : null;
+          const finalRoiRate = clientRoiRate ?? 0;
 
           let monthlyRoiVal = 0;
           if (Array.isArray(root.investments)) {
@@ -250,6 +241,12 @@ export default function DashboardHome() {
             }, 0);
           }
 
+          const backendTotal = root.totalInvestment !== undefined ? root.totalInvestment :
+                               (root.totalInvestmentAmount !== undefined ? root.totalInvestmentAmount :
+                               (root.stats?.totalInvested || 0));
+
+          // Use backend Investment-model total as primary (persists even if tx history is cleared).
+          // Fall back to approvedDepositsSum only if backend shows 0 and transactions show a higher amount.
           let transactionsList = [];
           if (txRes) {
             const rootTx = txRes.data || txRes;
@@ -265,13 +262,13 @@ export default function DashboardHome() {
             .filter(t => t.type === 'deposit' && String(t.status || '').toLowerCase() === 'approved')
             .reduce((sum, t) => sum + Number(t.amount || 0), 0);
 
-          const backendTotal = root.totalInvestment !== undefined ? root.totalInvestment : (root.stats?.totalInvested || 0);
-          const finalTotalInvested = Math.max(approvedDepositsSum, Number(backendTotal || 0));
+          // Primary = Investment model value from backend; fallback to tx sum if backend is 0
+          const finalTotalInvested = Number(backendTotal) > 0 ? Number(backendTotal) : approvedDepositsSum;
 
           updatedStats = {
             totalInvested: finalTotalInvested,
-            monthlyROI: monthlyRoiVal || root.stats?.monthlyROI || 0,
-            roiRate: finalRoiRate || root.roiAverage || (root.stats?.roiRate || 0),
+            monthlyROI: monthlyRoiVal || root.expectedMonthlyRoi || root.stats?.monthlyROI || 0,
+            roiRate: finalRoiRate ?? root.roiRate ?? root.roiAverage ?? root.stats?.roiRate ?? 0,
             perkTier: rawClient.tier || root.stats?.perkTier || 'Silver',
             nextROIDate: root.nextRoiDate || root.stats?.nextROIDate || '—',
           };
@@ -305,36 +302,9 @@ export default function DashboardHome() {
               };
             });
             setRoiHistory(updatedRoiHistory);
+          // No mock ROI history — if backend returns empty, show empty list for new clients
           } else {
-            const investmentVal = root.totalInvestment || (updatedClient ? updatedClient.totalInvestment : 0) || 500000;
-            const roiRateVal = finalRoiRate;
-            const allocDateStr = (updatedClient ? (updatedClient.contractStartDate || updatedClient.dateOfJoining || updatedClient.createdAt) : null) || '2026-07-13';
-            const startDate = new Date(allocDateStr);
-            const endDate = new Date();
-            if (!isNaN(startDate.getTime())) {
-              const generatedHistory = [];
-              let current = new Date(startDate.getFullYear(), startDate.getMonth(), 1);
-              let index = 1;
-              while (current <= endDate) {
-                const monthStr = current.toLocaleString('en-US', { month: 'short', year: 'numeric' });
-                const amt = Math.round((investmentVal * roiRateVal) / 100);
-                const payoutDate = new Date(current.getFullYear(), current.getMonth() + 1, 0);
-                generatedHistory.push({
-                  _id: `roi_gen_${index}`,
-                  month: monthStr,
-                  date: payoutDate.toISOString(),
-                  expected: amt,
-                  received: amt,
-                  amount: amt,
-                  status: 'Approved',
-                  processedDate: payoutDate.toLocaleDateString('en-IN')
-                });
-                index++;
-                current.setMonth(current.getMonth() + 1);
-              }
-              updatedRoiHistory = generatedHistory.reverse();
-              setRoiHistory(updatedRoiHistory);
-            }
+            setRoiHistory([]);
           }
           // Dynamically compute onboarding and journey steps in frontend
           const isKycSubmitted = ['PENDING', 'VERIFIED', 'APPROVED'].includes(String(rawClient.kycStatus || rawClient.kyc || '').toUpperCase());
@@ -442,8 +412,21 @@ export default function DashboardHome() {
 
     loadClientDashboardData();
 
-    const pollInterval = setInterval(loadClientDashboardData, 15000);
-    return () => clearInterval(pollInterval);
+    const handleApprovalEvent = (e) => {
+      if (!e || e.key === 'kfpl_approval_event' || e.type === 'kfpl_approval_event') {
+        loadClientDashboardData();
+      }
+    };
+
+    window.addEventListener('storage', handleApprovalEvent);
+    window.addEventListener('kfpl_approval_event', handleApprovalEvent);
+
+    const pollInterval = setInterval(loadClientDashboardData, 8000);
+    return () => {
+      clearInterval(pollInterval);
+      window.removeEventListener('storage', handleApprovalEvent);
+      window.removeEventListener('kfpl_approval_event', handleApprovalEvent);
+    };
   }, []);
 
   const SEGMENT_COLORS = {
@@ -1232,31 +1215,37 @@ export default function DashboardHome() {
           </div>
           <div className="kfpl-chart-body" style={{ padding: '8px 24px 24px' }}>
             <div className="kfpl-widget-list">
-              {roiHistory.slice(0, 5).map((roi, idx) => (
-                <div className="kfpl-widget-item" key={idx}>
-                  <div className="kfpl-widget-rank silver">
-                    {idx + 1}
-                  </div>
-                  <div className="kfpl-widget-item-info">
-                    <div className="kfpl-widget-item-name">{roi.month}</div>
-                    <div className="kfpl-widget-item-sub">
-                      {(() => {
-                        const isPaid = String(roi.status || '').toLowerCase() === 'paid';
-                        const displayStatus = isPaid ? 'Paid' : 'Approved';
-                        const badgeClass = isPaid ? 'paid' : 'approved';
-                        return (
-                          <>
-                            Status: <span className={`kfpl-badge kfpl-badge--${badgeClass}`} style={{ fontSize: '0.625rem', padding: '1px 6px' }}>{displayStatus}</span>
-                          </>
-                        );
-                      })()}
+              {roiHistory.length === 0 ? (
+                <div style={{ color: 'var(--color-text-muted)', fontSize: '0.875rem', textAlign: 'center', padding: '24px 0' }}>
+                  No ROI payouts received yet.
+                </div>
+              ) : (
+                roiHistory.slice(0, 5).map((roi, idx) => (
+                  <div className="kfpl-widget-item" key={idx}>
+                    <div className="kfpl-widget-rank silver">
+                      {idx + 1}
+                    </div>
+                    <div className="kfpl-widget-item-info">
+                      <div className="kfpl-widget-item-name">{roi.month}</div>
+                      <div className="kfpl-widget-item-sub">
+                        {(() => {
+                          const isPaid = String(roi.status || '').toLowerCase() === 'paid';
+                          const displayStatus = isPaid ? 'Paid' : 'Approved';
+                          const badgeClass = isPaid ? 'paid' : 'approved';
+                          return (
+                            <>
+                              Status: <span className={`kfpl-badge kfpl-badge--${badgeClass}`} style={{ fontSize: '0.625rem', padding: '1px 6px' }}>{displayStatus}</span>
+                            </>
+                          );
+                        })()}
+                      </div>
+                    </div>
+                    <div className="kfpl-widget-item-value" style={{ color: 'var(--color-success)' }}>
+                      {formatCurrency(roi.received > 0 ? roi.received : roi.expected)}
                     </div>
                   </div>
-                  <div className="kfpl-widget-item-value" style={{ color: 'var(--color-success)' }}>
-                    {formatCurrency(roi.received > 0 ? roi.received : roi.expected)}
-                  </div>
-                </div>
-              ))}
+                ))
+              )}
             </div>
           </div>
         </div>
@@ -1309,40 +1298,59 @@ export default function DashboardHome() {
             </div>
           </div>
           <div className="kfpl-chart-body" style={{ padding: '16px 24px 24px' }}>
-            <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', textAlign: 'center', gap: '12px' }}>
-              <div style={{
-                width: '64px',
-                height: '64px',
-                borderRadius: '50%',
-                background: 'linear-gradient(135deg, var(--color-gold) 0%, var(--color-gold-dark) 100%)',
-                color: 'var(--color-white)',
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                fontSize: '1.75rem',
-                fontWeight: '800',
-                boxShadow: '0 4px 12px rgba(16, 185, 129, 0.2)'
-              }}>
-                {client.agentName ? client.agentName.split(' ').map(n => n[0]).join('') : 'WA'}
+            {client.agentName && client.agentId ? (
+              <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', textAlign: 'center', gap: '12px' }}>
+                <div style={{
+                  width: '64px',
+                  height: '64px',
+                  borderRadius: '50%',
+                  background: 'linear-gradient(135deg, var(--color-gold) 0%, var(--color-gold-dark) 100%)',
+                  color: 'var(--color-white)',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  fontSize: '1.75rem',
+                  fontWeight: '800',
+                  boxShadow: '0 4px 12px rgba(16, 185, 129, 0.2)'
+                }}>
+                  {client.agentName.split(' ').map(n => n[0]).join('')}
+                </div>
+                <div>
+                  <h4 style={{ fontSize: '1rem', fontWeight: '700' }}>{client.agentName}</h4>
+                  <p className="text-muted text-sm" style={{ marginTop: '2px' }}>ID: {formatAgentID(client.agentId)} • Senior Wealth Manager</p>
+                </div>
+                <div style={{ display: 'flex', gap: '8px', width: '100%', marginTop: '8px' }}>
+                  <a href={`tel:${client.advisorPhone || ''}`} className="kfpl-btn kfpl-btn--ghost kfpl-btn--sm" style={{ flex: 1 }}>
+                    📞 Call
+                  </a>
+                  <a href={`https://wa.me/${client.advisorPhone || ''}`} target="_blank" rel="noopener noreferrer" className="kfpl-btn kfpl-btn--primary kfpl-btn--sm" style={{ flex: 1, background: '#25D366', borderColor: '#25D366' }}>
+                    💬 WhatsApp
+                  </a>
+                </div>
+                <p className="text-xs text-muted" style={{ marginTop: '4px' }}>
+                  Available Mon - Sat, 10 AM to 6 PM IST
+                </p>
               </div>
-              <div>
-                <h4 style={{ fontSize: '1rem', fontWeight: '700' }}>{client.agentName || 'Wealth Advisor'}</h4>
-                <p className="text-muted text-sm" style={{ marginTop: '2px' }}>ID: {formatAgentID(client.agentId || 'KFPL-AG-1002')} • Senior Wealth Manager</p>
+            ) : (
+              <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: '12px', padding: '24px 0', textAlign: 'center' }}>
+                <div style={{
+                  width: '56px', height: '56px', borderRadius: '50%',
+                  background: 'var(--color-surface-elevated)',
+                  display: 'flex', alignItems: 'center', justifyContent: 'center'
+                }}>
+                  <svg viewBox="0 0 24 24" fill="none" stroke="var(--color-text-muted)" strokeWidth="1.5" strokeLinecap="round" style={{ width: 28, height: 28 }}>
+                    <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/>
+                  </svg>
+                </div>
+                <div>
+                  <p style={{ fontWeight: 600, color: 'var(--color-text)', marginBottom: '4px' }}>Direct Admin Client</p>
+                  <p className="text-muted text-sm">No wealth advisor assigned yet. Contact Kinetoscope admin for support.</p>
+                </div>
               </div>
-              <div style={{ display: 'flex', gap: '8px', width: '100%', marginTop: '8px' }}>
-                <a href={`tel:${client.advisorPhone || ''}`} className="kfpl-btn kfpl-btn--ghost kfpl-btn--sm" style={{ flex: 1 }}>
-                  📞 Call
-                </a>
-                <a href={`https://wa.me/${client.advisorPhone || '919876543210'}`} target="_blank" rel="noopener noreferrer" className="kfpl-btn kfpl-btn--primary kfpl-btn--sm" style={{ flex: 1, background: '#25D366', borderColor: '#25D366' }}>
-                  💬 WhatsApp
-                </a>
-              </div>
-              <p className="text-xs text-muted" style={{ marginTop: '4px' }}>
-                Available Mon - Sat, 10 AM to 6 PM IST
-              </p>
-            </div>
+            )}
           </div>
         </div>
+
 
         {/* ═══════ Media Preview Modal ═══════ */}
         <Modal

@@ -1,6 +1,5 @@
 import { useState, useEffect } from 'react';
 import { createPortal } from 'react-dom';
-import { mockOpportunities } from '../../data/mockData';
 import { apiRequest } from '../../config/apiHelper';
 
 /* ── Segment color map ─────────────────────── */
@@ -116,15 +115,8 @@ export default function ProjectSelection() {
         setOpportunities(mapped);
         localStorage.setItem('kfpl_client_opportunities_cache', JSON.stringify(mapped));
       } catch (err) {
-        console.error('Failed to load selector projects, using mock:', err);
-        // Map mockOpportunities with proper structure
-        const mappedMock = mockOpportunities.map(opp => {
-          return {
-            ...opp,
-            initials: SEGMENT_ABBR[opp.segment] || opp.name.slice(0, 2).toUpperCase()
-          };
-        });
-        setOpportunities(mappedMock);
+        console.error('Failed to load selector projects:', err);
+        setOpportunities([]);
       } finally {
         setLoading(false);
       }

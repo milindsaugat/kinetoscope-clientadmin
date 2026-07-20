@@ -3,11 +3,26 @@
    Description: Support page with contact cards, FAQ accordion
    ============================================================ */
 
-import { useState } from 'react';
-import { mockFAQs } from '../../data/mockData';
+import { useState, useEffect } from 'react';
+import { apiRequest } from '../../config/apiHelper';
 
 export default function Support() {
   const [openFaq, setOpenFaq] = useState(null);
+  const [faqs, setFaqs] = useState([]);
+
+  useEffect(() => {
+    let isMounted = true;
+    apiRequest('/api/client/faqs')
+      .then(res => {
+        if (!isMounted) return;
+        const list = res?.faqs || res?.data?.faqs || res?.data || (Array.isArray(res) ? res : []);
+        setFaqs(Array.isArray(list) ? list : []);
+      })
+      .catch(() => {
+        if (isMounted) setFaqs([]);
+      });
+    return () => { isMounted = false; };
+  }, []);
 
   return (
     <div className="kfpl-page">
@@ -46,18 +61,22 @@ export default function Support() {
       {/* FAQ Accordion */}
       <div className="kfpl-card">
         <h3 style={{ marginBottom: '20px', paddingBottom: '12px', borderBottom: '2px solid var(--color-gold)' }}>Frequently Asked Questions</h3>
-        {mockFAQs.map((faq, i) => (
-          <div key={i} className="kfpl-faq-item">
-            <div className={`kfpl-faq-question ${openFaq === i ? 'open' : ''}`} onClick={() => setOpenFaq(openFaq === i ? null : i)}>
-              {faq.q}
-              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><polyline points="6 9 12 15 18 9"/></svg>
-            </div>
-            {openFaq === i && <div className="kfpl-faq-answer">{faq.a}</div>}
+        {faqs.length === 0 ? (
+          <div style={{ padding: '24px', textAlign: 'center', color: 'var(--color-text-muted)' }}>
+            No FAQs available at the moment.
           </div>
-        ))}
+        ) : (
+          faqs.map((faq, i) => (
+            <div key={i} className="kfpl-faq-item">
+              <div className={`kfpl-faq-question ${openFaq === i ? 'open' : ''}`} onClick={() => setOpenFaq(openFaq === i ? null : i)}>
+                {faq.question || faq.q}
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><polyline points="6 9 12 15 18 9"/></svg>
+              </div>
+              {openFaq === i && <div className="kfpl-faq-answer">{faq.answer || faq.a}</div>}
+            </div>
+          ))
+        )}
       </div>
     </div>
   );
 }
-
-/* ============ END: Support.jsx ============ */

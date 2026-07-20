@@ -6,7 +6,6 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { RISK_PROFILES, NOMINEE_RELATIONS } from '../../constants';
-import { mockClient } from '../../data/mockData';
 import { apiRequest } from '../../config/apiHelper';
 
 export default function OnboardingDetails() {

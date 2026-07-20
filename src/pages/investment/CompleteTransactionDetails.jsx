@@ -4,9 +4,7 @@
    ============================================================ */
 
 import { useState, useEffect } from 'react';
-import {
-  formatCurrency
-} from '../../data/mockData';
+import { formatCurrency } from '../../utils/formatters';
 import { useToast } from '../../components/ui/Toast';
 import { apiRequest } from '../../config/apiHelper';
 
@@ -55,38 +53,8 @@ export default function CompleteTransactionDetails() {
           console.warn('Backend payouts API offline, using local fallback');
         }
 
-        if (list.length === 0 && loggedClient) {
-          try {
-            const investmentVal = loggedClient.totalInvestment || 500000;
-            const roiRateVal = loggedClient.roiPercent || loggedClient.roiPercentage || 3.1;
-            const allocDateStr = loggedClient.contractStartDate || loggedClient.dateOfJoining || '2026-07-14';
-            const startDate = new Date(allocDateStr);
-            const endDate = new Date();
-            if (!isNaN(startDate.getTime())) {
-              let current = new Date(startDate.getFullYear(), startDate.getMonth(), 1);
-              const targetMonth = endDate.getMonth();
-              const targetYear = endDate.getFullYear();
-              let index = 1;
-              while (current <= endDate) {
-                const monthStr = current.toLocaleString('en-US', { month: 'short', year: 'numeric' });
-                const amt = Math.round((investmentVal * roiRateVal) / 100);
-                const isCurrentMonth = current.getMonth() === targetMonth && current.getFullYear() === targetYear;
-                list.push({
-                  _id: `roi_${loggedClient._id || 'mock'}_${index}`,
-                  month: monthStr,
-                  period: monthStr,
-                  roiRate: roiRateVal,
-                  amount: amt,
-                  status: 'approved',
-                  paidAt: new Date(current.getFullYear(), current.getMonth() + 1, 0).toLocaleDateString('en-IN')
-                });
-                index++;
-                current.setMonth(current.getMonth() + 1);
-              }
-            }
-          } catch (err) {}
-          list = list.reverse();
-        }
+        // Only use actual payout records returned from backend API
+        // If list is empty, set empty array — no synthetic mock records
 
         const mapped = list.map((r, idx) => ({
           id: r.id || r._id || (idx + 1),

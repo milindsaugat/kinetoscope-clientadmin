@@ -994,7 +994,7 @@
 .kfpl-prk-roadmap {
   display: grid;
   grid-template-columns: repeat(4, 1fr);
-  gap: 0;
+  gap: 16px;
   position: relative;
 }
 
@@ -1020,11 +1020,12 @@
   display: flex;
   flex-direction: column;
   border: 1.5px solid var(--color-border-light);
-  border-radius: var(--radius-lg);
-  overflow: visible;
+  border-radius: 12px;
+  overflow: hidden;
+  background: var(--color-white);
   transition: all 0.3s ease;
-  margin: 0 6px;
-  opacity: 0.65;
+  margin: 0 4px;
+  opacity: 0.7;
 }
 
 .kfpl-prk-roadmap-tier--unlocked {
@@ -1033,8 +1034,8 @@
 
 .kfpl-prk-roadmap-tier--current {
   opacity: 1;
-  border-color: var(--color-gold);
-  box-shadow: 0 4px 20px rgba(16, 185, 129, 0.15);
+  border-width: 2px;
+  box-shadow: 0 6px 20px rgba(0, 0, 0, 0.08);
 }
 
 .kfpl-prk-roadmap-tier--next {
@@ -1049,11 +1050,13 @@
 }
 
 .kfpl-prk-roadmap-tier-header {
-  padding: 16px 16px 12px;
+  padding: 16px 16px 14px;
   display: flex;
   align-items: center;
   gap: 12px;
   border-bottom: 1px solid var(--color-border-light);
+  border-top-left-radius: 10px;
+  border-top-right-radius: 10px;
 }
 
 .kfpl-prk-roadmap-tier--current .kfpl-prk-roadmap-tier-header {
@@ -1132,26 +1135,7 @@
 
 /* Connector Arrow */
 .kfpl-prk-roadmap-connector {
-  position: absolute;
-  right: -16px;
-  top: 50%;
-  transform: translateY(-50%);
-  z-index: 5;
-  width: 28px;
-  height: 28px;
-  border-radius: 50%;
-  background: var(--color-surface);
-  border: 1.5px solid var(--color-border-light);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  color: var(--color-border);
-}
-
-.kfpl-prk-roadmap-connector--active {
-  color: var(--color-gold);
-  border-color: var(--color-gold-glow);
-  background: var(--color-gold-light);
+  display: none !important;
 }
 
 /* ── Risk Profile Cards ─────────────────────── */

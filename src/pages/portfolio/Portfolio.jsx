@@ -6,7 +6,6 @@
 import { useEffect, useMemo, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { SEGMENTS } from '../../constants';
-import { mockPortfolioProjects } from '../../data/mockData';
 import { apiRequest } from '../../config/apiHelper';
 
 const PROJECT_META = {
@@ -222,7 +221,7 @@ export default function Portfolio() {
         if (stored) {
           setProjects(JSON.parse(stored));
         } else {
-          setProjects(mockPortfolioProjects);
+          setProjects([]);
         }
       } finally {
         setLoading(false);

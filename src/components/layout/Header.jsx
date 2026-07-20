@@ -63,6 +63,7 @@ export default function Header({ isCollapsed, onMenuClick }) {
 
   const handleLogout = () => {
     localStorage.removeItem('kfpl_client_auth');
+    localStorage.removeItem('kfpl_client_dashboard_cache');
     window.location.href = '/login';
   };
 

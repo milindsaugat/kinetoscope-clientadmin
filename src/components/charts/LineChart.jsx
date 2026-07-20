@@ -4,7 +4,7 @@
    ============================================================ */
 
 import { useState } from 'react';
-import { formatCurrency } from '../../data/mockData';
+import { formatCurrency } from '../../utils/formatters';
 
 export default function LineChart({ data, height = 220, color = '#10B981' }) {
   const [hoveredIndex, setHoveredIndex] = useState(null);

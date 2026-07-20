@@ -950,4 +950,14 @@
   color: var(--color-text-muted);
 }
 
+/* Hide number input spinners and prevent accidental wheel scroll increments */
+input[type=number]::-webkit-inner-spin-button,
+input[type=number]::-webkit-outer-spin-button {
+  -webkit-appearance: none !important;
+  margin: 0 !important;
+}
+input[type=number] {
+  -moz-appearance: textfield !important;
+}
+
 /* ============ END: components.css ============ */

@@ -7,7 +7,6 @@
 
 import { useState, useEffect } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
-import { mockFAQs } from '../../data/mockData';
 import { RISK_PROFILES, NOMINEE_RELATIONS } from '../../constants';
 import { useToast } from '../../components/ui/Toast';
 import { apiRequest } from '../../config/apiHelper';

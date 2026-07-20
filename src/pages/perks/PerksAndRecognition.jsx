@@ -47,6 +47,96 @@ const SparkleIcon = () => (
   <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M12 3v18M3 12h18M5.63 5.63l12.73 12.73M18.36 5.63L5.63 18.36"/></svg>
 );
 
+/* Description Formatter for Multi-line / Bullet Point Texts */
+const renderFormattedDescription = (desc) => {
+  if (!desc) return null;
+  const lines = desc.split('\n').map(l => l.trim()).filter(Boolean);
+
+  if (lines.length === 1 && !lines[0].endsWith(':') && !lines[0].includes('•')) {
+    return (
+      <span style={{ fontSize: '0.8125rem', color: 'var(--color-text-muted)', display: 'block', marginTop: '3px', lineHeight: 1.4 }}>
+        {desc}
+      </span>
+    );
+  }
+
+  return (
+    <div style={{ fontSize: '0.8125rem', color: 'var(--color-text-muted)', marginTop: '4px', lineHeight: 1.5 }}>
+      {lines.map((line, idx) => {
+        const isHeader = line.endsWith(':') || line.toLowerCase().includes('points:') || line.toLowerCase().includes('includes:');
+        if (isHeader) {
+          return (
+            <div key={idx} style={{ fontWeight: 700, color: 'var(--color-navy)', marginTop: idx > 0 ? '8px' : '3px', marginBottom: '4px', fontSize: '0.825rem' }}>
+              {line}
+            </div>
+          );
+        }
+
+        // First intro line if it doesn't look like a bullet list item
+        const isFirstIntro = idx === 0 && !line.startsWith('•') && !line.startsWith('-') && !line.startsWith('*') && !/^\d+\./.test(line);
+        if (isFirstIntro) {
+          return (
+            <div key={idx} style={{ color: 'var(--color-text-muted)', fontSize: '0.8125rem', marginBottom: '6px', lineHeight: 1.4 }}>
+              {line}
+            </div>
+          );
+        }
+
+        const cleanText = line.replace(/^[•\-\*\d+\.]+\s*/, '');
+        return (
+          <div key={idx} style={{ display: 'flex', alignItems: 'flex-start', gap: '6px', marginTop: '3px', paddingLeft: '4px' }}>
+            <span style={{ color: '#10B981', fontWeight: 'bold', fontSize: '0.8rem', lineHeight: '1.3' }}>✓</span>
+            <span style={{ color: 'var(--color-text-secondary)', fontSize: '0.8rem', lineHeight: 1.35 }}>{cleanText}</span>
+          </div>
+        );
+      })}
+    </div>
+  );
+};
+
+const getHistoryTypeDetails = (type) => {
+  const t = (type || '').toLowerCase();
+  switch (t) {
+    case 'tier':
+      return {
+        bg: '#FEF3C7',
+        border: '#F59E0B',
+        color: '#B45309',
+        badgeBg: '#FFFBEB',
+        label: 'Tier Upgrade',
+        icon: <ArrowUpIcon />
+      };
+    case 'perk':
+      return {
+        bg: '#F3E8FF',
+        border: '#A855F7',
+        color: '#6B21A8',
+        badgeBg: '#FAF5FF',
+        label: 'Perk Unlocked',
+        icon: <SparkleIcon />
+      };
+    case 'investment':
+      return {
+        bg: '#EFF6FF',
+        border: '#3B82F6',
+        color: '#1D4ED8',
+        badgeBg: '#F0F9FF',
+        label: 'Investment',
+        icon: <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><line x1="12" y1="1" x2="12" y2="23"/><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg>
+      };
+    case 'join':
+    default:
+      return {
+        bg: '#ECFDF5',
+        border: '#10B981',
+        color: '#047857',
+        badgeBg: '#F0FDF4',
+        label: 'Onboarded',
+        icon: <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
+      };
+  }
+};
+
 export default function PerksAndRecognition() {
   const [perksData, setPerksData] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -67,16 +157,33 @@ export default function PerksAndRecognition() {
       try {
         const res = await apiRequest('/api/client/perks');
         
-        // Normalize tier case (e.g. GOLD -> Gold, gold -> Gold)
-        const rawTier = res.currentTier || res.tier || 'Silver';
+        const rootData = res.data || res;
+        const rawTier = rootData.currentTier || rootData.tier || 'Silver';
         const currentTier = rawTier.charAt(0).toUpperCase() + rawTier.slice(1).toLowerCase();
+        const upgradeInfo = rootData.upgradeProgress || {};
+
+        let rawBenefits = rootData.perks || rootData.benefits || [];
+        const demoTitles = ['All Gold benefits', 'All Silver benefits', 'All Platinum benefits', 'Dedicated relationship manager', 'Exclusive event invitations', 'Bonus eligibility (annual)'];
+        const hasRealDbPerks = rawBenefits.some(b => {
+          const title = typeof b === 'string' ? b : (b.title || '');
+          return !demoTitles.includes(title);
+        });
+
+        if (hasRealDbPerks) {
+          rawBenefits = rawBenefits.filter(b => {
+            const title = typeof b === 'string' ? b : (b.title || '');
+            return !demoTitles.includes(title);
+          });
+        }
 
         const freshPerks = {
           currentTier,
-          nextTierAmount: res.nextTierAmount || 0,
-          progressPercent: res.progressPercent !== undefined ? res.progressPercent : (res.upgradePercentage || 0),
-          totalInvested: res.totalInvested || 0,
-          history: (res.history || []).map(h => ({
+          nextTierAmount: upgradeInfo.requiredMore !== undefined ? upgradeInfo.requiredMore : (rootData.nextTierAmount || 0),
+          progressPercent: upgradeInfo.percentage !== undefined ? upgradeInfo.percentage : (rootData.progressPercent || 0),
+          totalInvested: rootData.totalInvestment !== undefined ? rootData.totalInvestment : (rootData.totalInvested || 0),
+          benefits: rawBenefits,
+          roadmap: rootData.roadmap || [],
+          history: (rootData.history || []).map(h => ({
             date: h.date || h.assignedAt || new Date().toISOString(),
             event: h.event || h.perkName || h.title || '',
             type: h.type || 'perk'
@@ -96,9 +203,10 @@ export default function PerksAndRecognition() {
 
   const activePerksData = perksData || {
     currentTier: 'Silver',
-    nextTierAmount: 2500000,
+    nextTierAmount: 500000,
     progressPercent: 0,
     totalInvested: 0,
+    benefits: [],
     history: []
   };
 
@@ -108,6 +216,10 @@ export default function PerksAndRecognition() {
   const currentIdx = tierKeys.indexOf(activePerksData.currentTier);
   const nextTier = currentIdx < tierKeys.length - 1 ? PERK_TIERS[tierKeys[currentIdx + 1]] : null;
   const nextVisual = nextTier ? tierVisuals[tierKeys[currentIdx + 1]] : null;
+
+  const benefitsList = (activePerksData.benefits && activePerksData.benefits.length > 0)
+    ? activePerksData.benefits
+    : tier.benefits;
 
   const upgradeAmountNeeded = activePerksData.nextTierAmount !== undefined
     ? activePerksData.nextTierAmount
@@ -222,20 +334,56 @@ export default function PerksAndRecognition() {
               <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M12 2l3.09 6.26L22 9.27l-5 4.87L18.18 22 12 18.27 5.82 22 7 14.14 2 9.27l6.91-1.01L12 2z"/></svg>
             </div>
             <h3 className="kfpl-prk-benefits-title">Your Benefits</h3>
-            <span className="kfpl-prk-benefits-count">{tier.benefits.length}</span>
+            <span className="kfpl-prk-benefits-count">{benefitsList.length}</span>
           </div>
           <div className="kfpl-prk-benefits-list">
-            {tier.benefits.map((b, i) => (
-              <div key={i} className="kfpl-prk-benefit-item" style={{ animationDelay: `${i * 0.06}s` }}>
-                <div className="kfpl-prk-benefit-check">
-                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
+            {benefitsList.map((b, i) => {
+              const title = typeof b === 'string' ? b : (b.title || b.name || '');
+              const desc = typeof b === 'object' ? (b.description || '') : '';
+              return (
+                <div
+                  key={i}
+                  className="kfpl-prk-benefit-item"
+                  style={{
+                    animationDelay: `${i * 0.06}s`,
+                    display: 'flex',
+                    alignItems: 'flex-start',
+                    gap: '14px',
+                    padding: '16px',
+                    background: 'var(--color-white)',
+                    borderRadius: '12px',
+                    border: '1px solid var(--color-border-light)',
+                    boxShadow: '0 2px 8px rgba(0, 0, 0, 0.03)',
+                    marginBottom: '12px',
+                    transition: 'all 0.2s ease'
+                  }}
+                >
+                  <div
+                    style={{
+                      marginTop: '2px',
+                      background: '#ECFDF5',
+                      border: '1.5px solid #10B981',
+                      color: '#10B981',
+                      width: '26px',
+                      height: '26px',
+                      borderRadius: '50%',
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      flexShrink: 0
+                    }}
+                  >
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
+                  </div>
+                  <div style={{ flex: 1 }}>
+                    <span style={{ fontWeight: 700, color: 'var(--color-text-primary)', display: 'block', fontSize: '0.95rem' }}>{title}</span>
+                    {renderFormattedDescription(desc)}
+                  </div>
                 </div>
-                <span>{b}</span>
-              </div>
-            ))}
+              );
+            })}
           </div>
         </div>
-
         {/* Recognition History */}
         <div className="kfpl-prk-history-card">
           <div className="kfpl-prk-history-header">
@@ -250,22 +398,49 @@ export default function PerksAndRecognition() {
                 No recognition history found
               </div>
             ) : (
-              activePerksData.history.map((item, i) => (
-                <div key={i} className="kfpl-prk-timeline-item" style={{ animationDelay: `${i * 0.08}s` }}>
-                  <div className="kfpl-prk-timeline-track">
-                    <div className={`kfpl-prk-timeline-dot ${item.type === 'tier' ? 'kfpl-prk-timeline-dot--tier' : ''}`}>
-                      {item.type === 'tier' ? <ArrowUpIcon /> : <SparkleIcon />}
+              activePerksData.history.map((item, i) => {
+                const config = getHistoryTypeDetails(item.type);
+                return (
+                  <div key={i} className="kfpl-prk-timeline-item" style={{ animationDelay: `${i * 0.08}s` }}>
+                    <div className="kfpl-prk-timeline-track">
+                      <div
+                        className="kfpl-prk-timeline-dot"
+                        style={{
+                          background: config.bg,
+                          borderColor: config.border,
+                          color: config.color
+                        }}
+                      >
+                        {config.icon}
+                      </div>
+                      {i < activePerksData.history.length - 1 && <div className="kfpl-prk-timeline-line"></div>}
                     </div>
-                    {i < activePerksData.history.length - 1 && <div className="kfpl-prk-timeline-line"></div>}
+                    <div className="kfpl-prk-timeline-content">
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                        <span className="kfpl-prk-timeline-date">
+                          {new Date(item.date).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' })}
+                        </span>
+                        <span
+                          style={{
+                            fontSize: '0.7rem',
+                            fontWeight: 700,
+                            padding: '2px 8px',
+                            borderRadius: '12px',
+                            background: config.badgeBg,
+                            color: config.color,
+                            border: `1px solid ${config.border}`
+                          }}
+                        >
+                          {config.label}
+                        </span>
+                      </div>
+                      <p className="kfpl-prk-timeline-text" style={{ marginTop: '3px', fontWeight: 500, color: 'var(--color-navy)' }}>
+                        {item.event}
+                      </p>
+                    </div>
                   </div>
-                  <div className="kfpl-prk-timeline-content">
-                    <span className="kfpl-prk-timeline-date">
-                      {new Date(item.date).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' })}
-                    </span>
-                    <p className="kfpl-prk-timeline-text">{item.event}</p>
-                  </div>
-                </div>
-              ))
+                );
+              })
             )}
           </div>
         </div>
@@ -285,12 +460,18 @@ export default function PerksAndRecognition() {
             const isUnlocked = idx <= currentIdx;
             const isNext = idx === currentIdx + 1;
 
+            const tierRoadmapData = (activePerksData.roadmap || []).find(r => r.tier && r.tier.toLowerCase() === key.toLowerCase());
+            const cardBenefits = (tierRoadmapData && tierRoadmapData.benefits && tierRoadmapData.benefits.length > 0)
+              ? tierRoadmapData.benefits
+              : t.benefits;
+
             return (
               <div
                 key={key}
                 className={`kfpl-prk-roadmap-tier ${isCurrent ? 'kfpl-prk-roadmap-tier--current' : ''} ${isUnlocked ? 'kfpl-prk-roadmap-tier--unlocked' : ''} ${isNext ? 'kfpl-prk-roadmap-tier--next' : ''}`}
+                style={isCurrent ? { borderColor: v.accent, boxShadow: `0 6px 20px ${v.glow}` } : {}}
               >
-                <div className="kfpl-prk-roadmap-tier-header" style={isCurrent ? { background: v.gradient } : {}}>
+                <div className="kfpl-prk-roadmap-tier-header" style={isCurrent ? { background: v.gradient, borderTopLeftRadius: '10px', borderTopRightRadius: '10px' } : {}}>
                   <span className="kfpl-prk-roadmap-tier-icon" style={{ color: isCurrent ? v.iconColor : v.accent }}>
                     {renderTierIcon(key, 24, isCurrent ? v.iconColor : v.accent)}
                   </span>
@@ -303,20 +484,20 @@ export default function PerksAndRecognition() {
                 </div>
                 <div className="kfpl-prk-roadmap-tier-body">
                   <div className="kfpl-prk-roadmap-tier-meta">
-                    <span>{t.benefits.length} benefits</span>
+                    <span>{cardBenefits.length} benefits</span>
                     {isCurrent && <span className="kfpl-badge kfpl-badge--active" style={{ fontSize: '0.625rem' }}>Current</span>}
                     {isUnlocked && !isCurrent && <span className="kfpl-badge kfpl-badge--inactive" style={{ fontSize: '0.625rem' }}>Unlocked</span>}
                     {!isUnlocked && <span className="kfpl-badge kfpl-badge--inactive" style={{ fontSize: '0.625rem' }}>Locked</span>}
                   </div>
                   <ul className="kfpl-prk-roadmap-benefits">
-                    {t.benefits.slice(0, 3).map((b, bi) => (
+                    {cardBenefits.slice(0, 6).map((b, bi) => (
                       <li key={bi}>
                         <svg width="12" height="12" viewBox="0 0 24 24" fill={isUnlocked ? 'var(--color-gold)' : 'var(--color-border)'} stroke={isUnlocked ? 'var(--color-gold)' : 'var(--color-border)'} strokeWidth="3" strokeLinecap="round"><polyline points="20 6 9 17 4 12"/></svg>
-                        {b}
+                        {typeof b === 'string' ? b : (b.title || b.name || '')}
                       </li>
                     ))}
-                    {t.benefits.length > 3 && (
-                      <li className="kfpl-prk-roadmap-more">+{t.benefits.length - 3} more</li>
+                    {cardBenefits.length > 6 && (
+                      <li className="kfpl-prk-roadmap-more">+{cardBenefits.length - 6} more</li>
                     )}
                   </ul>
                 </div>

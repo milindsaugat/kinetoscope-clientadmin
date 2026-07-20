@@ -74,7 +74,7 @@ export const PERK_TIERS = {
   Gold: {
     label: 'Gold',
     icon: '🥇',
-    minAmount: 500000,
+    minAmount: 500001,
     maxAmount: 1500000,
     color: 'gold',
     benefits: [
@@ -87,7 +87,7 @@ export const PERK_TIERS = {
   Platinum: {
     label: 'Platinum',
     icon: '💎',
-    minAmount: 1500000,
+    minAmount: 1500001,
     maxAmount: 5000000,
     color: 'platinum',
     benefits: [
@@ -101,7 +101,7 @@ export const PERK_TIERS = {
   Diamond: {
     label: 'Diamond',
     icon: '👑',
-    minAmount: 5000000,
+    minAmount: 5000001,
     maxAmount: null,
     color: 'diamond',
     benefits: [

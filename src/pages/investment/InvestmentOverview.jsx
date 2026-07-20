@@ -4,7 +4,6 @@
    ============================================================ */
 
 import { useState, useEffect } from 'react';
-import { mockInvestments as fallbackInvestments, mockROIHistory as fallbackROIHistory, mockTotalInvested, mockDividendBonus, mockClient as fallbackClient } from '../../data/mockData';
 import { apiRequest } from '../../config/apiHelper';
 import KpiCard from '../../components/ui/KpiCard';
 
@@ -427,12 +426,9 @@ export default function InvestmentOverview() {
 
               const rootDash = dashRes ? (dashRes.data || dashRes) : {};
               const activeClientObj = rootDash.profile || rootDash.client || rootDash.user || targetInvRes.client || targetInvRes.user || loggedClient || {};
-              const isKrishna = (activeClientObj.name || '').toLowerCase().includes('krishna') || 
-                                (activeClientObj.clientId || '').includes('1002') ||
-                                (activeClientObj.email || '').toLowerCase().includes('krishna') ||
-                                (loggedClient && (loggedClient.name || '').toLowerCase().includes('krishna'));
-              const clientRoiRate = isKrishna ? 3.1 : (activeClientObj.roiPercent || activeClientObj.roiPercentage || activeClientObj.monthlyRoi || activeClientObj.roi || null);
-              const finalRoi = clientRoiRate || inv.roiPercentage || inv.roiAllocated || inv.roi || 3.1;
+              // Use real ROI from backend only — no hardcoded fallback
+              const clientRoiRate = activeClientObj.roiPercent ?? activeClientObj.roiPercentage ?? activeClientObj.monthlyRoi ?? activeClientObj.roi ?? null;
+              const finalRoi = clientRoiRate ?? inv.roiPercentage ?? inv.roiAllocated ?? inv.roi ?? 0;
 
               return {
                 ...inv,
@@ -455,40 +451,8 @@ export default function InvestmentOverview() {
           }
         }
 
-        // 2. Process Dashboard ROI History
-        const targetDashRes = dashRes || (loggedClient ? (() => {
-          const generatedHistory = [];
-          try {
-            const investmentVal = loggedClient.totalInvestment || 500000;
-            const roiRateVal = loggedClient.roiPercent || loggedClient.roiPercentage || 3.1;
-            const allocDateStr = loggedClient.contractStartDate || loggedClient.dateOfJoining || '2026-07-14';
-            const startDate = new Date(allocDateStr);
-            const endDate = new Date();
-            if (!isNaN(startDate.getTime())) {
-              let current = new Date(startDate.getFullYear(), startDate.getMonth(), 1);
-              const targetMonth = endDate.getMonth();
-              const targetYear = endDate.getFullYear();
-              let index = 1;
-              while (current <= endDate) {
-                const monthStr = current.toLocaleString('en-US', { month: 'short', year: 'numeric' });
-                const amt = Math.round((investmentVal * roiRateVal) / 100);
-                const isCurrentMonth = current.getMonth() === targetMonth && current.getFullYear() === targetYear;
-                generatedHistory.push({
-                  _id: `roi_${loggedClient._id || 'mock'}_${index}`,
-                  payoutMonth: monthStr,
-                  month: monthStr,
-                  roiRate: roiRateVal,
-                  amount: amt,
-                  status: isCurrentMonth ? 'Pending' : 'Paid',
-                  processedDate: isCurrentMonth ? '—' : new Date(current.getFullYear(), current.getMonth() + 1, 0).toLocaleDateString('en-IN')
-                });
-                index++;
-                current.setMonth(current.getMonth() + 1);
-              }
-            }
-          } catch (e) {}
-          return { roiHistory: generatedHistory.reverse() };
-        })() : null);
+        // Use only real dashboard data — no mock fallback
+        const targetDashRes = dashRes || null;
 
         if (targetDashRes) {
           const rootDash = targetDashRes.data || targetDashRes;
@@ -511,45 +475,7 @@ export default function InvestmentOverview() {
           }
         }
 
-        if (freshRoiHistory.length === 0 && updatedClient) {
-          try {
-            const isKrishna = (updatedClient.name || '').toLowerCase().includes('krishna') || 
-                              (updatedClient.clientId || '').includes('1002') ||
-                              (updatedClient.email || '').toLowerCase().includes('krishna') ||
-                              (loggedClient && (loggedClient.name || '').toLowerCase().includes('krishna'));
-            const clientRoiRate = isKrishna ? 3.1 : (updatedClient.roiPercent || updatedClient.roiPercentage || updatedClient.monthlyRoi || updatedClient.roi || null);
-            const finalRoiRate = clientRoiRate || 3.1;
-            const investmentVal = updatedClient.totalInvestment || updatedClient.totalInvestmentAmount || 500000;
-            const allocDateStr = updatedClient.contractStartDate || updatedClient.dateOfJoining || '2026-07-13';
-            const startDate = new Date(allocDateStr);
-            const endDate = new Date();
-            if (!isNaN(startDate.getTime())) {
-              const generatedHistory = [];
-              let current = new Date(startDate.getFullYear(), startDate.getMonth(), 1);
-              let index = 1;
-              while (current <= endDate) {
-                const monthStr = current.toLocaleString('en-US', { month: 'short', year: 'numeric' });
-                const amt = Math.round((investmentVal * finalRoiRate) / 100);
-                const payoutDate = new Date(current.getFullYear(), current.getMonth() + 1, 0);
-                generatedHistory.push({
-                  _id: `roi_gen_${index}`,
-                  month: monthStr,
-                  date: payoutDate.toISOString(),
-                  expected: amt,
-                  received: amt,
-                  amount: amt,
-                  status: 'Approved',
-                  processedDate: payoutDate.toLocaleDateString('en-IN')
-                });
-                index++;
-                current.setMonth(current.getMonth() + 1);
-              }
-              freshRoiHistory = generatedHistory.reverse();
-            }
-          } catch (e) {
-            console.error('Failed to generate fallback ROI history:', e);
-          }
-        }
+        // No mock ROI history — new clients with no payouts show empty list
 
         setRoiHistory(freshRoiHistory);
 

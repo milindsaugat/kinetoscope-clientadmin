@@ -4,7 +4,6 @@
    ============================================================ */
 
 import { useState, useEffect } from 'react';
-import { mockPaymentRequests, mockClient } from '../../data/mockData';
 import { useToast } from '../../components/ui/Toast';
 import { apiRequest } from '../../config/apiHelper';
 
@@ -70,33 +69,61 @@ export default function PaymentRequests() {
         totalWithdrawals: totalWith,
         pendingRequests: pendCount
       });
+
+      // Write to SWR Cache
+      const cacheKey = `kfpl_client_payments_cache_${getClientId()}`;
+      localStorage.setItem(cacheKey, JSON.stringify({
+        requestsList: mapped,
+        stats: {
+          totalDeposits: totalDep,
+          totalWithdrawals: totalWith,
+          pendingRequests: pendCount
+        }
+      }));
     } catch (err) {
       console.error('Failed to load transaction list:', err);
-      // Fallback
-      const clientDataKey = `kfpl_client_data_${mockClient.clientId}`;
-      const stored = localStorage.getItem(clientDataKey);
+      // Fallback from SWR cache or mock
+      const cacheKey = `kfpl_client_payments_cache_${getClientId()}`;
+      const stored = localStorage.getItem(cacheKey);
       if (stored) {
         const parsed = JSON.parse(stored);
-        if (parsed.paymentRequests) {
-          setRequestsList(parsed.paymentRequests);
-          const td = parsed.paymentRequests.filter(r => r.type === 'Deposit').reduce((s, r) => s + r.amount, 0);
-          const tw = parsed.paymentRequests.filter(r => r.type === 'Withdrawal').reduce((s, r) => s + r.amount, 0);
-          const pc = parsed.paymentRequests.filter(r => r.status === 'Pending').length;
-          setStats({ totalDeposits: td, totalWithdrawals: tw, pendingRequests: pc });
-          return;
-        }
+        if (parsed.requestsList) setRequestsList(parsed.requestsList);
+        if (parsed.stats) setStats(parsed.stats);
+        return;
       }
-      setRequestsList(mockPaymentRequests);
-      const td = mockPaymentRequests.filter(r => r.type === 'Deposit').reduce((s, r) => s + r.amount, 0);
-      const tw = mockPaymentRequests.filter(r => r.type === 'Withdrawal').reduce((s, r) => s + r.amount, 0);
-      const pc = mockPaymentRequests.filter(r => r.status === 'Pending').length;
-      setStats({ totalDeposits: td, totalWithdrawals: tw, pendingRequests: pc });
+      setRequestsList([]);
+      setStats({ totalDeposits: 0, totalWithdrawals: 0, pendingRequests: 0 });
     } finally {
       setLoading(false);
     }
   };
 
+  const getClientId = () => {
+    try {
+      const authData = localStorage.getItem('kfpl_client_auth');
+      if (authData) {
+        const parsed = JSON.parse(authData);
+        const c = parsed.client || parsed.user || {};
+        return c.id || c._id || 'default';
+      }
+    } catch (e) {}
+    return 'default';
+  };
+
   useEffect(() => {
+    // --- SWR Cache Initialization for Instant Load (0ms) ---
+    try {
+      const cacheKey = `kfpl_client_payments_cache_${getClientId()}`;
+      const cacheData = localStorage.getItem(cacheKey);
+      if (cacheData) {
+        const parsed = JSON.parse(cacheData);
+        if (parsed.requestsList) setRequestsList(parsed.requestsList);
+        if (parsed.stats) setStats(parsed.stats);
+        setLoading(false); // bypass loading screen
+      }
+    } catch (e) {
+      console.warn('Failed to parse payments cache:', e);
+    }
     fetchTransactions();
   }, []);
 
