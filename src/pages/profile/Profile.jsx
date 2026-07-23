@@ -176,16 +176,28 @@ export default function Profile() {
     localStorage.getItem('kfpl_tfa_enabled') === 'true'
   );
 
-  const handleTfaToggle = () => {
+  const handleTfaToggle = async () => {
     const nextState = !tfaEnabled;
     setTfaEnabled(nextState);
     localStorage.setItem('kfpl_tfa_enabled', String(nextState));
-    if (nextState) {
-      addToast('success', '2FA Enabled', 'Two-Factor Authentication is now enabled for your account.');
-    } else {
-      addToast('warning', '2FA Disabled', 'Two-Factor Authentication has been turned off.');
+
+    try {
+      await apiRequest('/api/client/profile/2fa', {
+        method: 'PATCH',
+        body: JSON.stringify({ is2FAEnabled: nextState }),
+      });
+      if (nextState) {
+        addToast('success', '2FA Enabled', 'Two-Factor Authentication is now enabled for your account.');
+      } else {
+        addToast('warning', '2FA Disabled', 'Two-Factor Authentication has been turned off.');
+      }
+    } catch (err) {
+      setTfaEnabled(!nextState);
+      localStorage.setItem('kfpl_tfa_enabled', String(!nextState));
+      addToast('error', 'Update Failed', err.message || 'Failed to update 2FA setting on server.');
     }
   };
+
 
 
 
@@ -329,7 +341,7 @@ export default function Profile() {
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" width="16" height="16">
             <rect x="3" y="11" width="18" height="11" rx="2" ry="2" /><path d="M7 11V7a5 5 0 0 1 10 0v4" />
           </svg>
-          Security & 2FA
+          Security & Password
         </button>
         <button
           className={`kfpl-pay-tab ${activeTab === 'support' ? 'kfpl-pay-tab--active' : ''}`}
@@ -427,28 +439,9 @@ export default function Profile() {
           </div>
         )}
 
-        {/* ==================== TAB 2: Security & 2FA ==================== */}
+        {/* ==================== TAB 2: Security & Password ==================== */}
         {activeTab === 'security' && (
           <div className="kfpl-profile-grid">
-            {/* 2FA Toggle */}
-            <div className="kfpl-card">
-              <h3 style={{ marginBottom: '16px', paddingBottom: '12px', borderBottom: '2px solid var(--color-gold)' }}>Two-Factor Authentication</h3>
-
-              <div className="kfpl-tfa-toggle-row" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '16px', background: 'var(--color-surface)', borderRadius: 'var(--radius-lg)', border: '1px solid var(--color-border-light)' }}>
-                <div>
-                  <h4 style={{ fontSize: '0.875rem', fontWeight: 700, color: 'var(--color-text-primary)' }}>Secure Login with 2FA</h4>
-                  <p style={{ fontSize: '0.75rem', color: 'var(--color-text-muted)', marginTop: '4px', maxWidth: '280px', lineHeight: 1.4 }}>
-                    Require a verification OTP sent to your email whenever you sign in to your dashboard.
-                  </p>
-                </div>
-
-                {/* Switch toggle control */}
-                <label className="kfpl-switch">
-                  <input type="checkbox" checked={tfaEnabled} onChange={handleTfaToggle} />
-                  <span className="kfpl-switch-slider"></span>
-                </label>
-              </div>
-            </div>
             <div className="kfpl-card">
               <h3 style={{ marginBottom: '16px', paddingBottom: '12px', borderBottom: '2px solid var(--color-gold)' }}>Change Password</h3>
 

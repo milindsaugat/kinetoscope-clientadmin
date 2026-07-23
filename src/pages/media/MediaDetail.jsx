@@ -49,6 +49,7 @@ export default function MediaDetail() {
   const [showCopiedAlert, setShowCopiedAlert] = useState(false);
   const [subscribedEmail, setSubscribedEmail] = useState('');
   const [isSubscribed, setIsSubscribed] = useState(false);
+  const [submittingSubscribe, setSubmittingSubscribe] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
 
   // Scroll to top on mount or ID change
@@ -62,94 +63,97 @@ export default function MediaDetail() {
       let art = null;
       let feed = [];
 
-      // Fetch specific detail and feed list concurrently
       try {
         const [detailRes, feedRes] = await Promise.all([
-          apiRequest(`/api/client/news/${id}`).catch((err) => {
-            console.warn('Failed to fetch specific article detail:', err);
-            return null;
-          }),
-          apiRequest('/api/client/articles').catch((err) => {
-            console.error('Failed to fetch articles list:', err);
-            return null;
-          })
+          apiRequest(`/api/client/articles/${id}`)
+            .catch(() => apiRequest(`/api/client/news/${id}`))
+            .catch(() => apiRequest(`/api/agent/articles/${id}`))
+            .catch(() => apiRequest(`/api/agent/news/${id}`))
+            .catch(() => null),
+          apiRequest('/api/client/articles')
+            .catch(() => apiRequest('/api/agent/articles'))
+            .catch(() => null)
         ]);
 
         if (detailRes) {
-          art = detailRes.article || detailRes.data || detailRes;
+          art = detailRes.data?.article || detailRes.data || detailRes.article || (detailRes._id || detailRes.id ? detailRes : null);
         }
+
         if (feedRes) {
           feed = extractArticles(feedRes);
         }
-      } catch (err) {
-        console.error('Unexpected error in concurrent loading:', err);
-      }
 
-      // 3. Fallback: If detail API failed or returned nothing, find it in the feed list
-      if (!art && feed.length > 0) {
-        art = feed.find(a => String(a._id || a.id) === String(id));
-        if (art) {
-          console.log('Successfully found article in feed list fallback:', art);
+        // Fallback 1: Match by ID in feed list
+        if ((!art || !art.title) && feed.length > 0) {
+          art = feed.find(a => String(a._id || a.id) === String(id));
         }
-      }
 
-      // 4. Map and set states
-      if (art) {
-        const rawContent = art.content || '';
-        const cleanContent = rawContent.replace(/\u00a0/g, ' ').replace(/&nbsp;/g, ' ');
-        const rawExcerpt = art.excerpt || '';
-        const cleanExcerpt = rawExcerpt.replace(/\u00a0/g, ' ').replace(/&nbsp;/g, ' ');
+        // Fallback 2: If still not matched and feed has articles, fallback to first available article
+        if ((!art || !art.title) && feed.length > 0) {
+          art = feed[0];
+        }
 
-        const mappedArticle = {
-          id: art._id || art.id,
-          title: art.title || '',
-          excerpt: cleanExcerpt,
-          content: cleanContent,
-          category: art.category || 'Company News',
-          author: art.author || 'KFPL Communications',
-          date: art.publishDate || art.date || art.createdAt || new Date().toISOString(),
-          status: art.status || 'Published',
-          imageUrl: art.imageUrl || art.featuredImage || '',
-          quote: art.specialQuote || art.quote || '',
-          quoteAuthor: art.quoteAuthorRole || art.quoteAuthor || '',
-          advisory: art.advisoryNotice || art.advisory || '',
-        };
-        setArticle(mappedArticle);
+        if (art && art.title) {
+          const rawContent = art.content || '';
+          const cleanContent = rawContent.replace(/\u00a0/g, ' ').replace(/&nbsp;/g, ' ');
+          const rawExcerpt = art.excerpt || '';
+          const cleanExcerpt = rawExcerpt.replace(/\u00a0/g, ' ').replace(/&nbsp;/g, ' ');
 
-        const mappedFeed = feed.map(a => {
-          const rawFeedContent = a.content || '';
-          const cleanFeedContent = rawFeedContent.replace(/\u00a0/g, ' ').replace(/&nbsp;/g, ' ');
-          const rawFeedExcerpt = a.excerpt || '';
-          const cleanFeedExcerpt = rawFeedExcerpt.replace(/\u00a0/g, ' ').replace(/&nbsp;/g, ' ');
-          return {
-            id: a._id || a.id,
-            title: a.title || '',
-            excerpt: cleanFeedExcerpt,
-            category: a.category || 'Company News',
-            date: a.publishDate || a.date || a.createdAt || new Date().toISOString(),
-            imageUrl: a.imageUrl || a.featuredImage || '',
-            author: a.author || 'KFPL Communications',
-            content: cleanFeedContent,
+          const mappedArticle = {
+            id: art._id || art.id,
+            title: art.title || '',
+            excerpt: cleanExcerpt,
+            content: cleanContent,
+            category: art.category || 'Company News',
+            author: art.author || 'KFPL Communications',
+            date: art.publishDate || art.date || art.createdAt || new Date().toISOString(),
+            status: art.status || 'Published',
+            imageUrl: art.imageUrl || art.featuredImage || '',
+            quote: art.specialQuote || art.quote || '',
+            quoteAuthor: art.quoteAuthorRole || art.quoteAuthor || '',
+            advisory: art.advisoryNotice || art.advisory || '',
           };
-        });
+          setArticle(mappedArticle);
 
-        setLatestArticles(mappedFeed.filter(a => a.id !== mappedArticle.id).slice(0, 4));
+          const mappedFeed = feed.map(a => {
+            const rawFeedContent = a.content || '';
+            const cleanFeedContent = rawFeedContent.replace(/\u00a0/g, ' ').replace(/&nbsp;/g, ' ');
+            const rawFeedExcerpt = a.excerpt || '';
+            const cleanFeedExcerpt = rawFeedExcerpt.replace(/\u00a0/g, ' ').replace(/&nbsp;/g, ' ');
+            return {
+              id: a._id || a.id,
+              title: a.title || '',
+              excerpt: cleanFeedExcerpt,
+              category: a.category || 'Company News',
+              date: a.publishDate || a.date || a.createdAt || new Date().toISOString(),
+              imageUrl: a.imageUrl || a.featuredImage || '',
+              author: a.author || 'KFPL Communications',
+              content: cleanFeedContent,
+            };
+          });
 
-        const related = mappedFeed.filter(a => a.id !== mappedArticle.id && a.category === mappedArticle.category).slice(0, 2);
-        const others = related.length < 2
-          ? [...related, ...mappedFeed.filter(a => a.id !== mappedArticle.id && a.category !== mappedArticle.category).slice(0, 2 - related.length)]
-          : related;
-        setRelatedArticles(others);
+          setLatestArticles(mappedFeed.filter(a => a.id !== mappedArticle.id).slice(0, 4));
 
-        const catCounts = mappedFeed.reduce((acc, curr) => {
-          acc[curr.category] = (acc[curr.category] || 0) + 1;
-          return acc;
-        }, {});
-        setCategoriesWithCounts(catCounts);
-      } else {
+          const related = mappedFeed.filter(a => a.id !== mappedArticle.id && a.category === mappedArticle.category).slice(0, 2);
+          const others = related.length < 2
+            ? [...related, ...mappedFeed.filter(a => a.id !== mappedArticle.id && a.category !== mappedArticle.category).slice(0, 2 - related.length)]
+            : related;
+          setRelatedArticles(others);
+
+          const catCounts = mappedFeed.reduce((acc, curr) => {
+            acc[curr.category] = (acc[curr.category] || 0) + 1;
+            return acc;
+          }, {});
+          setCategoriesWithCounts(catCounts);
+        } else {
+          setArticle(null);
+        }
+      } catch (err) {
+        console.error('Error loading article details in MediaDetail:', err);
         setArticle(null);
+      } finally {
+        setLoading(false);
       }
-      setLoading(false);
     };
     loadDetails();
   }, [id]);
@@ -215,25 +219,35 @@ export default function MediaDetail() {
 
   const handleSubscribeSubmit = async (e) => {
     e.preventDefault();
-    if (subscribedEmail && subscribedEmail.includes('@')) {
-      try {
-        await apiRequest('/api/client/articles/subscribe', {
-          method: 'POST',
-          body: JSON.stringify({ email: subscribedEmail })
-        });
+    const targetEmail = (subscribedEmail || '').trim();
+    if (!targetEmail || !targetEmail.includes('@')) {
+      alert('Please enter a valid email address.');
+      return;
+    }
 
-        const stored = localStorage.getItem('kfpl_newsletter_subscribers');
-        let subs = stored ? JSON.parse(stored) : [];
-        if (!subs.includes(subscribedEmail)) {
-          subs.push(subscribedEmail);
-          localStorage.setItem('kfpl_newsletter_subscribers', JSON.stringify(subs));
-        }
-      } catch (err) {
-        console.warn('Failed to save subscriber email via API', err);
+    setSubmittingSubscribe(true);
+
+    try {
+      const res = await apiRequest('/api/client/articles/subscribe', {
+        method: 'POST',
+        body: JSON.stringify({ email: targetEmail })
+      });
+
+      const stored = localStorage.getItem('kfpl_newsletter_subscribers');
+      let subs = stored ? JSON.parse(stored) : [];
+      if (!subs.includes(targetEmail)) {
+        subs.push(targetEmail);
+        localStorage.setItem('kfpl_newsletter_subscribers', JSON.stringify(subs));
       }
+
       setIsSubscribed(true);
       setSubscribedEmail('');
       setTimeout(() => setIsSubscribed(false), 5000);
+    } catch (err) {
+      console.error('Failed to subscribe:', err);
+      alert(err.message || 'Failed to subscribe to newsletter. Please try again.');
+    } finally {
+      setSubmittingSubscribe(false);
     }
   };
 
@@ -462,10 +476,17 @@ export default function MediaDetail() {
             <form className="kfpl-pub-sub-form" onSubmit={handleSubscribeSubmit}>
               <div className="kfpl-pub-sub-input-wrap">
                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"/><polyline points="22,6 12,13 2,6"/></svg>
-                <input type="email" placeholder="Enter your corporate email address" required value={subscribedEmail} onChange={(e) => setSubscribedEmail(e.target.value)} />
+                <input 
+                  type="email" 
+                  placeholder="Enter your corporate email address" 
+                  required 
+                  value={subscribedEmail} 
+                  onChange={(e) => setSubscribedEmail(e.target.value)} 
+                  disabled={submittingSubscribe}
+                />
               </div>
-              <button type="submit" className="kfpl-pub-sub-btn">
-                {isSubscribed ? 'Subscribed Successfully' : 'Subscribe to Reports'}
+              <button type="submit" className="kfpl-pub-sub-btn" disabled={submittingSubscribe}>
+                {submittingSubscribe ? 'Subscribing...' : isSubscribed ? 'Subscribed Successfully' : 'Subscribe to Reports'}
               </button>
             </form>
           </div>

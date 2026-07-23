@@ -1,10 +1,11 @@
 /* ============================================================
    Component: Header.jsx
-   Description: Top bar with breadcrumb, notifications, client profile
+   Description: Top bar with breadcrumb, interactive notifications, client profile
    ============================================================ */
 
 import { useState, useEffect, useRef } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
+import { apiRequest } from '../../config/apiHelper';
 
 // ── Route to Title & Breadcrumb Map ───────────────────────
 const routeConfig = {
@@ -34,7 +35,13 @@ export default function Header({ isCollapsed, onMenuClick }) {
   const config = getPageConfig(location.pathname);
 
   const [showDropdown, setShowDropdown] = useState(false);
+  const [showNotifDropdown, setShowNotifDropdown] = useState(false);
+
+  const [notifications, setNotifications] = useState([]);
+  const [unreadCount, setUnreadCount] = useState(0);
+
   const dropdownRef = useRef(null);
+  const notifRef = useRef(null);
 
   // Read logged-in client info from localStorage
   const authData = localStorage.getItem('kfpl_client_auth');
@@ -51,15 +58,71 @@ export default function Header({ isCollapsed, onMenuClick }) {
   const clientName = clientInfo?.name || 'Investor';
   const clientEmail = clientInfo?.email || 'investor@kfpl.com';
 
+  const fetchNotifications = async () => {
+    try {
+      const res = await apiRequest('/api/client/notifications');
+      if (res && (res.notifications || res.data)) {
+        const list = res.notifications || res.data || [];
+
+        let readIds = [];
+        try {
+          const stored = localStorage.getItem('kfpl_client_read_notifs');
+          readIds = stored ? JSON.parse(stored) : [];
+        } catch (e) {}
+
+        const formatted = list.map((n) => ({
+          ...n,
+          isRead: readIds.includes(n.id),
+        }));
+
+        setNotifications(formatted);
+        setUnreadCount(formatted.filter((n) => !n.isRead).length);
+      }
+    } catch (err) {
+      console.warn('Failed to fetch client notifications:', err);
+    }
+  };
+
   useEffect(() => {
+    fetchNotifications();
+
     const handleClickOutside = (event) => {
       if (dropdownRef.current && !dropdownRef.current.contains(event.target)) {
         setShowDropdown(false);
+      }
+      if (notifRef.current && !notifRef.current.contains(event.target)) {
+        setShowNotifDropdown(false);
       }
     };
     document.addEventListener('mousedown', handleClickOutside);
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, []);
+
+  const markAllAsRead = () => {
+    const allIds = notifications.map((n) => n.id);
+    localStorage.setItem('kfpl_client_read_notifs', JSON.stringify(allIds));
+    setNotifications((prev) => prev.map((n) => ({ ...n, isRead: true })));
+    setUnreadCount(0);
+  };
+
+  const markSingleAsRead = (id) => {
+    let readIds = [];
+    try {
+      const stored = localStorage.getItem('kfpl_client_read_notifs');
+      readIds = stored ? JSON.parse(stored) : [];
+    } catch (e) {}
+
+    if (!readIds.includes(id)) {
+      readIds.push(id);
+      localStorage.setItem('kfpl_client_read_notifs', JSON.stringify(readIds));
+    }
+
+    setNotifications((prev) => {
+      const updated = prev.map((n) => (n.id === id ? { ...n, isRead: true } : n));
+      setUnreadCount(updated.filter((n) => !n.isRead).length);
+      return updated;
+    });
+  };
 
   const handleLogout = () => {
     localStorage.removeItem('kfpl_client_auth');
@@ -69,6 +132,65 @@ export default function Header({ isCollapsed, onMenuClick }) {
 
   return (
     <header className={`kfpl-header ${isCollapsed ? 'sidebar-collapsed' : ''}`}>
+      <style>{`
+        .kfpl-notif-dropdown-card {
+          position: absolute;
+          top: 50px;
+          right: 0;
+          width: 360px;
+          background: #ffffff;
+          border-radius: 12px;
+          box-shadow: 0 10px 25px -5px rgba(0,0,0,0.1), 0 8px 10px -6px rgba(0,0,0,0.05), 0 0 1px rgba(0,0,0,0.15);
+          border: 1px solid #e2e8f0;
+          z-index: 1000;
+          animation: slideDownIn 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+          overflow: hidden;
+        }
+
+        .kfpl-notif-dropdown-header {
+          padding: 14px 16px;
+          border-bottom: 1px solid #f1f5f9;
+          background: #f8fafc;
+          display: flex;
+          justify-content: space-between;
+          align-items: center;
+        }
+
+        .kfpl-notif-dropdown-title {
+          font-weight: 700;
+          font-size: 0.875rem;
+          color: #0f172a;
+        }
+
+        .kfpl-notif-dropdown-body {
+          max-height: 320px;
+          overflow-y: auto;
+        }
+
+        .kfpl-notif-item {
+          padding: 12px 16px;
+          display: flex;
+          gap: 12px;
+          align-items: flex-start;
+          cursor: pointer;
+          transition: background 0.15s ease;
+          border-bottom: 1px solid #f1f5f9;
+        }
+
+        .kfpl-notif-item:hover {
+          background: #f8fafc;
+        }
+
+        .kfpl-notif-item:last-child {
+          border-bottom: none;
+        }
+
+        @keyframes slideDownIn {
+          from { opacity: 0; transform: translateY(8px); }
+          to { opacity: 1; transform: translateY(0); }
+        }
+      `}</style>
+
       <div className="kfpl-header-left">
         <button className="kfpl-header-hamburger" onClick={onMenuClick} aria-label="Open menu">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
@@ -86,13 +208,90 @@ export default function Header({ isCollapsed, onMenuClick }) {
       </div>
 
       <div className="kfpl-header-right">
-        {/* Notifications */}
-        <button className="kfpl-header-icon-btn" aria-label="Notifications">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
-            <path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/>
-          </svg>
-          <span className="kfpl-header-notification-dot"></span>
-        </button>
+        {/* Notifications Dropdown */}
+        <div ref={notifRef} style={{ position: 'relative' }}>
+          <button 
+            className="kfpl-header-icon-btn" 
+            aria-label="Notifications"
+            onClick={() => {
+              const next = !showNotifDropdown;
+              setShowNotifDropdown(next);
+              setShowDropdown(false);
+              if (next) {
+                markAllAsRead();
+              }
+            }}
+          >
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
+              <path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/>
+            </svg>
+            {unreadCount > 0 && (
+              <span className="kfpl-header-notification-dot" style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '0.625rem', fontWeight: 800, color: '#fff', background: '#e11d48', width: '15px', height: '15px', top: '-2px', right: '-2px', borderRadius: '50%', position: 'absolute' }}>
+                {unreadCount}
+              </span>
+            )}
+          </button>
+
+          {showNotifDropdown && (
+            <div className="kfpl-notif-dropdown-card">
+              <div className="kfpl-notif-dropdown-header">
+                <span className="kfpl-notif-dropdown-title">Client Notifications</span>
+                {notifications.some((n) => !n.isRead) && (
+                  <button 
+                    onClick={(e) => { e.stopPropagation(); markAllAsRead(); }}
+                    style={{ background: 'none', border: 'none', color: '#64748b', fontSize: '0.725rem', cursor: 'pointer', textDecoration: 'underline', padding: 0 }}
+                  >
+                    Mark all read
+                  </button>
+                )}
+              </div>
+              <div className="kfpl-notif-dropdown-body">
+                {notifications.length === 0 ? (
+                  <div style={{ padding: '32px 16px', textAlign: 'center', color: '#94a3b8', fontSize: '0.825rem' }}>
+                    No recent notifications found.
+                  </div>
+                ) : (
+                  notifications.map((n) => (
+                    <div 
+                      key={n.id}
+                      className="kfpl-notif-item"
+                      style={{ background: n.isRead ? 'transparent' : 'rgba(59, 130, 246, 0.04)' }}
+                      onClick={() => {
+                        markSingleAsRead(n.id);
+                        if (n.link) navigate(n.link);
+                        setShowNotifDropdown(false);
+                      }}
+                    >
+                      <div style={{
+                        width: '32px', height: '32px', borderRadius: '50%',
+                        background: n.category === 'danger' ? '#fef2f2' : n.category === 'success' ? '#ecfdf5' : '#eff6ff',
+                        color: n.category === 'danger' ? '#ef4444' : n.category === 'success' ? '#10b981' : '#3b82f6',
+                        display: 'flex', alignItems: 'center', justifyContent: 'center',
+                        fontSize: '0.875rem', fontWeight: 800, flexShrink: 0
+                      }}>
+                        {n.type === 'transaction' ? '₹' : n.type === 'roi' ? 'ROI' : 'N'}
+                      </div>
+                      <div style={{ display: 'flex', flexDirection: 'column', flex: 1 }}>
+                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                          <span style={{ fontSize: '0.825rem', color: '#0f172a', fontWeight: 700 }}>
+                            {n.title}
+                          </span>
+                          {!n.isRead && (
+                            <span style={{ fontSize: '0.625rem', background: '#3b82f6', color: '#fff', padding: '1px 6px', borderRadius: '10px', fontWeight: 700 }}>New</span>
+                          )}
+                        </div>
+                        <span style={{ fontSize: '0.725rem', color: '#64748b', marginTop: '2px', lineHeight: '1.4' }}>{n.message}</span>
+                        <span style={{ fontSize: '0.65rem', color: '#94a3b8', marginTop: '4px' }}>
+                          {new Date(n.date).toLocaleString('en-IN', { dateStyle: 'short', timeStyle: 'short' })}
+                        </span>
+                      </div>
+                    </div>
+                  ))
+                )}
+              </div>
+            </div>
+          )}
+        </div>
 
         <div className="kfpl-header-divider"></div>
 
